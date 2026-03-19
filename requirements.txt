@@ -1,0 +1,11 @@
+# sort コマンド（Gemini 無料枠）★推奨
+google-generativeai>=0.8.0
+
+# sort コマンド（Anthropic API・有料）
+anthropic>=0.40.0
+
+# docs/generate_docs.py（PPTX 生成）
+python-pptx>=1.0.0
+
+# qcatch.exe ビルド用
+pyinstaller>=6.0.0
