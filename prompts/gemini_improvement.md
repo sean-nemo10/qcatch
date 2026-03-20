@@ -1,4 +1,15 @@
-# qcatch 改善案を求める Gemini プロンプト
+# qcatch 改善案 — Gemini Q&A（2026-03-20）
+
+> 回答を受けて実装済みの内容:
+> - `google-genai`（新SDK）に移行 → TensorFlow 依存解消・単一 exe ビルド可能に
+> - `win11toast` による `toast` コマンド追加（Windows Search から通知入力）
+> - Gemini 2.0 Flash + Pydantic 構造化出力（JSON Schema）
+> - Ollama `--local` モード追加（`--local` フラグ、モデルは `QCATCH_OLLAMA_MODEL` で変更可能）
+> - Windows Search ショートカット → `qcatch.exe toast` に更新
+
+---
+
+# qcatch 改善案を求める Gemini プロンプト（送信内容）
 
 ---
 

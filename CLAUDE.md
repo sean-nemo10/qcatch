@@ -4,56 +4,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## このディレクトリについて
 
-`C:\dev\ZzzMemo` には 2 つのプロジェクトが同居している:
-- **qcatch** (メイン): 爆速タスクキャッチ & AI 自動整理 CLI（このディレクトリ）
-- **flashcard** (参照用): `C:\dev\remember\` にある間隔反復学習アプリ（git root は C:\dev）
+`C:\dev\ZzzMemo` — qcatch CLI タスク管理アプリ。
+git root は `C:\dev`（flashcard アプリ `remember/` も同居）。
 
 ---
 
-## qcatch ファイル構成
+## ファイル構成
 
 | パス | 役割 |
 |---|---|
-| `qcatch.py` | メインスクリプト（add / list / sort / prompt） |
-| `qcatch_add.bat` | ダブルクリック / Win+R 用ランチャー |
-| `setup.ps1` | Windows ランチャー一括セットアップ |
+| `qcatch.py` | メインスクリプト（全コマンド実装） |
+| `qcatch_add.bat` | バッチランチャー（ダブルクリック用） |
+| `build.ps1` | exe ビルド + Windows Search ショートカット更新 |
+| `setup.ps1` | 初期セットアップ（python.exe ベース） |
 | `data/inbox.txt` | 未整理タスク（add で追記） |
 | `data/sorted_tasks.md` | AI 分類済みタスク |
 | `data/archive.txt` | sort 済みの inbox バックアップ |
-| `data/sort_prompt.txt` | `sort --export` で生成されるプロンプト |
 | `docs/generate_docs.py` | PPTX ガイド生成（`python docs/generate_docs.py`） |
-| `docs/qcatch_guide.pptx` | 生成済みガイド |
-| `docs/generate_docs_flashcard_ref.py` | flashcard 用 PPTX（参考用、編集不要） |
-| `prompts/gemini_questions.md` | 未解決の疑問点（Windows Search / API キーなど） |
-| `windows_setup.md` | Windows Search 連携の技術的注意点（参考資料） |
+| `prompts/gemini_questions.md` | 技術調査 Q&A（Windows Search / API 課金） |
+| `prompts/gemini_improvement.md` | 改善案調査 Q&A（SDK / toast / Ollama） |
 
 ---
 
 ## コマンド
 
 ```bash
-python qcatch.py add "タスクのテキスト"   # 即追記（API通信なし）
-python qcatch.py list                      # inbox 確認
-python qcatch.py sort                      # Claude API で分類（ANTHROPIC_API_KEY 必要）
-python qcatch.py sort --export             # API 不使用・プロンプトをファイルに書き出し
-python qcatch.py prompt                    # 対話入力モード
-python docs/generate_docs.py              # PPTX を再生成
+python qcatch.py toast                  # トースト通知から入力（最速・Windows Search 用）
+python qcatch.py add "タスクのテキスト"  # 即追記（API通信なし）
+python qcatch.py list                   # inbox 確認
+python qcatch.py sort                   # Gemini 2.0 Flash で分類（GEMINI_API_KEY 必要）
+python qcatch.py sort --local           # Ollama（ローカル）で分類
+python qcatch.py sort --export          # API 不使用・プロンプトをファイル出力
+python qcatch.py prompt                 # ターミナル対話入力（toast の代替）
+python docs/generate_docs.py           # PPTX を再生成
+.\build.ps1                            # exe ビルド + Windows Search 登録（PowerShell）
 ```
 
 ---
 
-## 重要な設計上の制約
+## アーキテクチャ上の重要な判断
 
-- **`add` コマンドは API 通信禁止**: 待ち時間ゼロが必須。ファイル追記のみ。
-- **`data/` のファイルは上書き削除しない**: inbox.txt にはタスクデータが入っている。
-  スキーマ変更が必要な場合は既存データへの影響を確認してから行う。
-- **`sort` は `data/inbox.txt` をクリアする**: 実行前に必ず `list` で内容を確認すること。
+### なぜ `qcatch_launcher.py` を削除したか
+- 旧 `google-generativeai` は TensorFlow まで引き込み PyInstaller が失敗
+- 新 `google-genai`（v1.x）は httpx/pydantic/requests のみ → TensorFlow 依存なし
+- 結果: `qcatch.py` 単体でビルド可能（39MB exe）
+- `qcatch_launcher.py`（6MB exe）は不要になり削除した
+
+### sort コマンドのバックエンド優先順位
+1. `--local` フラグ → Ollama（完全ローカル）
+2. `GEMINI_API_KEY` → Gemini 2.0 Flash（無料枠・推奨）
+3. `ANTHROPIC_API_KEY` → Claude Haiku（有料・フォールバック）
+4. `--export` → プロンプトをファイル出力
+
+### Windows Search への登録方法
+`.lnk` ショートカットの TargetPath に `python.exe` を指定しても Windows Search に出ない（仕様）。
+`qcatch.exe` を直接 TargetPath にすることで「アプリ」として認識される。
+
+### toast コマンドの動作
+`win11toast` ライブラリで Windows 11 のトースト通知にテキスト入力フィールドを表示。
+`win11toast` が使えない環境では自動的に `prompt`（ターミナル対話）にフォールバック。
 
 ---
 
-## 未解決の問題（`prompts/gemini_questions.md` 参照）
+## 設計上の制約
 
-1. **Windows Search にショートカットが表示されない**: `setup.ps1` を実行したが
-   検索結果に出てこない。質問ファイルに詳細あり。
-2. **API キーなし**: ユーザーは Claude Code Pro サブスクだが Anthropic API キーは未取得。
-   現状の回避策: `sort --export` でプロンプトを書き出して Claude.ai に手動貼り付け。
+- **`add` コマンドは API 通信・重い処理を追加しないこと**（待ち時間ゼロが絶対条件）
+- **`data/` のファイルは上書き削除しないこと**（学習データが入っている）
+- **`sort` は `inbox.txt` をクリアする**（実行前に `list` で確認）
+- **データはテキストファイルのまま維持**（他ツールとの連携・可読性のため SQLite 化しない）

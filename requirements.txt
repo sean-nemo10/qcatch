@@ -1,8 +1,19 @@
-# sort コマンド（Gemini 無料枠）★推奨
-google-generativeai>=0.8.0
+# sort コマンド（Gemini 2.0 Flash・無料枠）★推奨
+# google-genai は TensorFlow 非依存の軽量 SDK（PyInstaller 対応）
+google-genai>=1.0.0
 
-# sort コマンド（Anthropic API・有料）
+# sort コマンド（Anthropic API・有料・フォールバック）
 anthropic>=0.40.0
+
+# sort コマンド（Ollama ローカル LLM・完全無料・オフライン）
+# Ollama アプリのインストールも別途必要: https://ollama.com
+ollama>=0.4.0
+
+# sort の構造化出力
+pydantic>=2.0.0
+
+# toast コマンド（Windows トースト通知入力）
+win11toast>=0.35
 
 # docs/generate_docs.py（PPTX 生成）
 python-pptx>=1.0.0
