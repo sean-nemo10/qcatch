@@ -105,5 +105,5 @@ Write-Host "  PowerShell      : qcatch sort  （GEMINI_API_KEY 設定後）" -Fo
 Write-Host ""
 Write-Host "Gemini API キーの設定:" -ForegroundColor Yellow
 Write-Host '  [Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "AIzaSy...", "User")' -ForegroundColor DarkGray
-Write-Host "  → https://aistudio.google.com/app/apikey （無料・クレカ不要）" -ForegroundColor DarkGray
+Write-Host "  → Google Cloud で billing 登録後、aistudio.google.com でキー発行（無料枠内は $0）" -ForegroundColor DarkGray
 Write-Host ""

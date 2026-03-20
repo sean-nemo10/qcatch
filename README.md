@@ -24,21 +24,24 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 Windows Search に `qcatch` と入力すると、**トースト通知（右下ポップアップ）** が表示され、
 コンソールを開かずにタスクを追加できます。
 
-### Step 3: Gemini API キーを取得（無料・クレカ不要）
+### Step 3: Gemini API キーを取得
 
-1. [Google AI Studio](https://aistudio.google.com/app/apikey) を開く
-2. 「Create API key」で `AIzaSy...` 形式のキーを発行
-3. PowerShell で永続設定:
+1. Google Cloud Console でプロジェクトに billing（支払い方法）を登録する
+   - 無料枠内（1500リクエスト/日）は $0。超過分のみ課金
+2. [Google AI Studio](https://aistudio.google.com/app/apikey) を開く
+3. 「Create API key」で `AIzaSy...` 形式のキーを発行
+4. PowerShell で永続設定:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "AIzaSy...", "User")
 # → PowerShell を再起動して反映
 ```
 
-> **⚠ 無料枠について（自動課金されない理由）**
-> - Google AI Studio キーはクレカ不要
-> - レート制限超過は「エラーで止まる」だけ。課金は発生しない
+> **⚠ 無料枠について**
+> - billing 登録必須（2025年以降の仕様）。登録しても無料枠内は $0
+> - レート制限超過は「エラーで止まる」だけ。自動課金されない
 > - ★ Vertex AI（GCP）のキーは別物・有料なので使わないこと
+> - 使用モデル: `gemini-2.5-flash`（gemini-2.0-flash は新規ユーザー提供終了）
 
 ---
 
