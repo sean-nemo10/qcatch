@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -14,9 +14,7 @@ git root は `C:\dev`（flashcard アプリ `remember/` も同居）。
 | パス | 役割 |
 |---|---|
 | `qcatch.py` | メインスクリプト（全コマンド実装） |
-| `qcatch_add.bat` | バッチランチャー（ダブルクリック用） |
 | `build.ps1` | exe ビルド + Windows Search ショートカット更新 |
-| `setup.ps1` | 初期セットアップ（python.exe ベース） |
 | `data/inbox.txt` | 未整理タスク（add で追記） |
 | `data/sorted_tasks.md` | AI 分類済みタスク |
 | `data/archive.txt` | sort 済みの inbox バックアップ |
@@ -51,10 +49,12 @@ python docs/generate_docs.py           # PPTX を再生成
 - `qcatch_launcher.py`（6MB exe）は不要になり削除した
 
 ### sort コマンドのバックエンド優先順位
-1. `--local` フラグ → Ollama（完全ローカル）
-2. `GEMINI_API_KEY` → Gemini 2.0 Flash（無料枠・推奨）
-3. `ANTHROPIC_API_KEY` → Claude Haiku（有料・フォールバック）
-4. `--export` → プロンプトをファイル出力
+1. `--export` フラグ → プロンプトをファイル出力（最優先）
+2. `--local` フラグ → Ollama（完全ローカル）
+3. `qcatch_config.json` の `sort_backend` 設定値
+4. auto（`sort_backend=auto`）: Ollama 起動中なら Ollama → `GEMINI_API_KEY` → `ANTHROPIC_API_KEY`
+
+設定例: `python qcatch.py config set sort_backend ollama`
 
 ### Windows Search への登録方法
 `.lnk` ショートカットの TargetPath に `python.exe` を指定しても Windows Search に出ない（仕様）。

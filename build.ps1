@@ -1,4 +1,4 @@
-# build.ps1 — qcatch.exe をビルドして Windows Search ショートカットを更新する
+﻿# build.ps1 — qcatch.exe をビルドして Windows Search ショートカットを更新する
 #
 # 実行方法:
 #   .\build.ps1
@@ -43,13 +43,7 @@ Write-Host "`n[2/4] PyInstaller でビルド中（初回は数分かかります
 Push-Location $ScriptDir
 
 # qcatch.py を直接ビルド（google-genai が軽量のため全機能を統合可能）
-pyinstaller `
-    --onefile `
-    --name qcatch `
-    --distpath . `
-    --workpath "build\work" `
-    --specpath "build" `
-    qcatch.py 2>&1 | Where-Object { $_ -match "(WARN|ERROR|Building EXE|completed successfully)" }
+pyinstaller --onefile --name qcatch --distpath . --workpath "build\work" --specpath "build" qcatch.py
 
 Pop-Location
 
@@ -87,7 +81,7 @@ if (-not (Test-Path $PROFILE)) {
     New-Item -ItemType File -Force -Path $PROFILE | Out-Null
 }
 
-$funcLine = "function qcatch { `"$ExePath`" @args }"
+$funcLine = "function qcatch { & `"$ExePath`" @args }"
 $content  = Get-Content $PROFILE -Raw -ErrorAction SilentlyContinue
 
 if ($content -notmatch "function qcatch") {
