@@ -15,6 +15,9 @@ docs/*.pptx
 # Claude Code 設定（マシン固有）
 .claude/
 
+# 個人設定（マシン固有）
+qcatch_config.json
+
 # データファイル（個人データ・コミット不要）
 data/inbox.txt
 data/sorted_tasks.md

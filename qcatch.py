@@ -26,10 +26,32 @@ DATA_DIR     = BASE_DIR / "data"
 INBOX_FILE   = DATA_DIR / "inbox.txt"
 SORTED_FILE  = DATA_DIR / "sorted_tasks.md"
 ARCHIVE_FILE = DATA_DIR / "archive.txt"
+CONFIG_FILE  = BASE_DIR / "qcatch_config.json"
 
 DATA_DIR.mkdir(exist_ok=True)
 
 CATEGORIES = ["仕事", "プライベート", "買い物", "学習", "その他"]
+
+# ── 設定ファイル ──────────────────────────────────────────────────────────────
+_DEFAULT_CONFIG = {
+    "sort_backend": "auto",   # "auto" | "ollama" | "gemini" | "anthropic" | "export"
+    "ollama_model": "phi4",   # ollama pull phi4 で取得
+    "ollama_host":  "http://localhost:11434",
+}
+
+def _load_config() -> dict:
+    if CONFIG_FILE.exists():
+        try:
+            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            return {**_DEFAULT_CONFIG, **data}
+        except Exception:
+            pass
+    return dict(_DEFAULT_CONFIG)
+
+def _save_config(cfg: dict) -> None:
+    CONFIG_FILE.write_text(
+        json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 # ── ANSI カラー ──────────────────────────────────────────────────────────────
 class C:
@@ -152,11 +174,11 @@ def cmd_sort(export: bool = False, local: bool = False) -> None:
     """
     inbox を AI で自動分類 → sorted_tasks.md に保存 → inbox をアーカイブ。
 
-    優先順位:
-      --local 指定: Ollama（完全ローカル）
-      GEMINI_API_KEY あり: Gemini 2.0 Flash（無料枠）
-      ANTHROPIC_API_KEY あり: Claude Haiku（有料・フォールバック）
-      --export: API 不使用・プロンプトをファイルに書き出す
+    バックエンド決定順:
+      1. --export フラグ        → プロンプトをファイルに書き出す
+      2. --local フラグ         → Ollama（ローカル）を強制
+      3. qcatch_config.json    → sort_backend の設定値に従う
+      4. auto（設定なし）       → Ollama が起動中なら Ollama、なければ API キーを探す
     """
     if not INBOX_FILE.exists():
         print(f"{C.YLW}inbox が見つかりません。{C.RST}")
@@ -168,7 +190,7 @@ def cmd_sort(export: bool = False, local: bool = False) -> None:
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    # ── エクスポートモード ─────────────────────────────────────────────────
+    # ── --export ───────────────────────────────────────────────────────────
     if export:
         prompt_text = _build_sort_prompt(content, now_str)
         export_path = DATA_DIR / "sort_prompt.txt"
@@ -177,23 +199,48 @@ def cmd_sort(export: bool = False, local: bool = False) -> None:
         print(f"  {C.DIM}Claude.ai や Gemini にこのファイルの内容を貼り付けて実行してください。{C.RST}")
         return
 
-    # ── ローカルモード（Ollama）──────────────────────────────────────────
-    if local:
-        result_md = _sort_with_ollama(content, now_str)
-    else:
-        gemini_key    = os.environ.get("GEMINI_API_KEY")
-        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    cfg = _load_config()
 
-        if gemini_key:
-            result_md = _sort_with_gemini(content, now_str, gemini_key)
-        elif anthropic_key:
-            result_md = _sort_with_anthropic(_build_sort_prompt(content, now_str), anthropic_key)
-        else:
-            print(f"{C.YLW}API キーが設定されていません。{C.RST}")
-            print(f"  {C.DIM}無料: GEMINI_API_KEY を設定（Google AI Studio）{C.RST}")
-            print(f"  {C.DIM}ローカル: python qcatch.py sort --local  （Ollama 必要）{C.RST}")
-            print(f"  {C.DIM}手動: python qcatch.py sort --export{C.RST}")
+    # ── --local フラグで強制 Ollama ────────────────────────────────────────
+    if local:
+        result_md = _sort_with_ollama(content, now_str, cfg)
+
+    # ── 設定ファイルの backend 指定 ────────────────────────────────────────
+    elif cfg["sort_backend"] == "ollama":
+        result_md = _sort_with_ollama(content, now_str, cfg)
+
+    elif cfg["sort_backend"] == "gemini":
+        key = os.environ.get("GEMINI_API_KEY")
+        if not key:
+            print(f"{C.RED}GEMINI_API_KEY が設定されていません。{C.RST}")
             sys.exit(1)
+        result_md = _sort_with_gemini(content, now_str, key)
+
+    elif cfg["sort_backend"] == "anthropic":
+        key = os.environ.get("ANTHROPIC_API_KEY")
+        if not key:
+            print(f"{C.RED}ANTHROPIC_API_KEY が設定されていません。{C.RST}")
+            sys.exit(1)
+        result_md = _sort_with_anthropic(_build_sort_prompt(content, now_str), key)
+
+    # ── auto: Ollama が動いていれば優先、なければ API キーを探す ─────────────
+    else:
+        if _ollama_is_running():
+            result_md = _sort_with_ollama(content, now_str, cfg)
+        else:
+            gemini_key    = os.environ.get("GEMINI_API_KEY")
+            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+            if gemini_key:
+                result_md = _sort_with_gemini(content, now_str, gemini_key)
+            elif anthropic_key:
+                result_md = _sort_with_anthropic(_build_sort_prompt(content, now_str), anthropic_key)
+            else:
+                print(f"{C.YLW}バックエンドが見つかりません。以下のどれかを設定してください:{C.RST}")
+                print(f"  {C.BOLD}Ollama（推奨・無料・ローカル）{C.RST}: ollama serve を起動")
+                print(f"  {C.BOLD}Gemini（無料枠）{C.RST}:           GEMINI_API_KEY を設定")
+                print(f"  {C.BOLD}設定を固定{C.RST}:                  qcatch config set backend ollama")
+                print(f"  {C.BOLD}手動{C.RST}:                        qcatch sort --export")
+                sys.exit(1)
 
     _save_sorted(result_md)
     _archive_inbox(content, now_str)
@@ -300,17 +347,30 @@ def _tasks_to_md(tasks, now_str: str) -> str:
     return "\n".join(lines)
 
 
-def _sort_with_ollama(content: str, now_str: str) -> str:
+def _ollama_is_running() -> bool:
+    """Ollama のローカルサーバーが起動しているか確認する（軽量チェック）。"""
+    try:
+        import urllib.request
+        cfg = _load_config()
+        urllib.request.urlopen(cfg["ollama_host"], timeout=1)
+        return True
+    except Exception:
+        return False
+
+
+def _sort_with_ollama(content: str, now_str: str, cfg: dict | None = None) -> str:
     """Ollama（完全ローカル）で分類。`ollama serve` が起動済みであること。"""
     try:
-        import ollama
+        import ollama as ollama_lib
     except ImportError:
         print(f"{C.RED}ollama が見つかりません: pip install ollama{C.RST}")
         print(f"  また Ollama アプリのインストールも必要: https://ollama.com")
         sys.exit(1)
 
-    # 推奨モデル: phi4（精度高・軽量）または llama3.2
-    model = os.environ.get("QCATCH_OLLAMA_MODEL", "phi4")
+    if cfg is None:
+        cfg = _load_config()
+    # 優先順位: 環境変数 > config > デフォルト(phi4)
+    model = os.environ.get("QCATCH_OLLAMA_MODEL", cfg.get("ollama_model", "phi4"))
     print(f"{C.CYN}Ollama（{model}）でローカル分類中...{C.RST}")
 
     prompt = (
@@ -321,7 +381,7 @@ def _sort_with_ollama(content: str, now_str: str) -> str:
     )
 
     try:
-        response = ollama.chat(
+        response = ollama_lib.chat(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             format="json",
@@ -372,6 +432,39 @@ def _sort_with_anthropic(prompt_text: str, api_key: str) -> str:
     return message.content[0].text
 
 
+def cmd_config(action: str, key: str = "", value: str = "") -> None:
+    """設定の表示・変更。"""
+    cfg = _load_config()
+
+    if action == "show":
+        print(f"\n{C.BOLD}{C.CYN}qcatch 設定  ({CONFIG_FILE}){C.RST}")
+        print(f"{C.DIM}{'─' * 45}{C.RST}")
+        for k, v in cfg.items():
+            print(f"  {C.BOLD}{k:<20}{C.RST} {v}")
+        print(f"{C.DIM}{'─' * 45}{C.RST}")
+        print(f"  {C.DIM}変更: qcatch config set <key> <value>{C.RST}\n")
+
+    elif action == "set":
+        if key not in _DEFAULT_CONFIG:
+            print(f"{C.RED}不明なキー: {key}{C.RST}")
+            print(f"  使用可能: {list(_DEFAULT_CONFIG.keys())}")
+            sys.exit(1)
+        if key == "sort_backend" and value not in ("auto", "ollama", "gemini", "anthropic", "export"):
+            print(f"{C.RED}sort_backend に指定できる値: auto / ollama / gemini / anthropic / export{C.RST}")
+            sys.exit(1)
+        cfg[key] = value
+        _save_config(cfg)
+        print(f"{C.GRN}{C.BOLD}✓{C.RST} {key} = {C.BOLD}{value}{C.RST}  ({CONFIG_FILE})")
+
+    elif action == "reset":
+        if CONFIG_FILE.exists():
+            CONFIG_FILE.unlink()
+        print(f"{C.GRN}{C.BOLD}✓{C.RST} 設定をデフォルトにリセットしました。")
+
+    else:
+        print(f"使い方: qcatch config show | set <key> <value> | reset")
+
+
 def _save_sorted(result: str) -> None:
     if SORTED_FILE.exists() and SORTED_FILE.read_text(encoding="utf-8").strip():
         with open(SORTED_FILE, "a", encoding="utf-8") as f:
@@ -407,7 +500,15 @@ def main() -> None:
     p_sort.add_argument("--export", action="store_true",
                         help="API 不使用・プロンプトをファイルに書き出す")
     p_sort.add_argument("--local",  action="store_true",
-                        help="Ollama（ローカル LLM）を使用")
+                        help="Ollama（ローカル）を強制使用")
+
+    p_cfg = sub.add_parser("config", help="設定の表示・変更")
+    p_cfg.add_argument("action", choices=["show", "set", "reset"],
+                       help="show: 表示 / set: 変更 / reset: 初期化")
+    p_cfg.add_argument("key",   nargs="?", default="",
+                       help="変更するキー（sort_backend / ollama_model など）")
+    p_cfg.add_argument("value", nargs="?", default="",
+                       help="設定する値")
 
     args = parser.parse_args()
 
@@ -421,6 +522,8 @@ def main() -> None:
         cmd_list()
     elif args.command == "sort":
         cmd_sort(export=args.export, local=args.local)
+    elif args.command == "config":
+        cmd_config(args.action, args.key, args.value)
     else:
         # 引数なし起動 → toast モード（使えない場合は prompt にフォールバック）
         cmd_toast()
