@@ -297,7 +297,7 @@ def _sort_with_gemini(content: str, now_str: str, api_key: str) -> str:
         print(f"{C.RED}google-genai が見つかりません: pip install google-genai{C.RST}")
         sys.exit(1)
 
-    print(f"{C.CYN}Gemini 2.0 Flash（無料枠）で分類中...{C.RST}")
+    print(f"{C.CYN}Gemini 2.5 Flash（無料枠）で分類中...{C.RST}")
 
     client = genai.Client(api_key=api_key)
 
@@ -310,7 +310,7 @@ def _sort_with_gemini(content: str, now_str: str, api_key: str) -> str:
         )
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -325,7 +325,7 @@ def _sort_with_gemini(content: str, now_str: str, api_key: str) -> str:
 
     # フォールバック: マークダウン形式で直接出力
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=_build_sort_prompt(content, now_str),
         config=types.GenerateContentConfig(temperature=0.1),
     )
