@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ExePath      = Join-Path $ScriptDir "qcatch.exe"
 $ShortcutName = "qcatch Task Capture"
-$Description  = "qcatch - 爆速タスクキャッチ（トースト通知）"
+$Description  = "qcatch - 爆速タスクキャッチ（Quick Add / Dashboard）"
 
 Write-Host ""
 Write-Host "=== qcatch ビルド ===" -ForegroundColor Cyan
@@ -25,7 +25,7 @@ Write-Host "=== qcatch ビルド ===" -ForegroundColor Cyan
 # ① 依存パッケージの確認・インストール
 Write-Host "`n[1/4] 依存パッケージを確認中..." -ForegroundColor Yellow
 
-$packages = @("pyinstaller", "google-genai", "win11toast", "pydantic")
+$packages = @("pyinstaller", "google-genai", "sv-ttk", "pydantic")
 foreach ($pkg in $packages) {
     $installed = pip show $pkg 2>$null
     if (-not $installed) {
@@ -43,7 +43,7 @@ Write-Host "`n[2/4] PyInstaller でビルド中（初回は数分かかります
 Push-Location $ScriptDir
 
 # qcatch.py を直接ビルド（google-genai が軽量のため全機能を統合可能）
-pyinstaller --onefile --name qcatch --distpath . --workpath "build\work" --specpath "build" qcatch.py
+pyinstaller --onefile --noconsole --name qcatch --distpath . --workpath "build\work" --specpath "build" --collect-data sv_ttk --log-level WARN qcatch.py
 
 Pop-Location
 
@@ -99,7 +99,7 @@ Write-Host ""
 Write-Host "=== ビルド完了 ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "起動方法:" -ForegroundColor White
-Write-Host "  Windows Search  : 「qcatch」で検索 → Enter → トースト通知が出る" -ForegroundColor Green
+Write-Host "  Windows Search  : 「qcatch」で検索 → Enter → Quick Add ウィンドウが出る" -ForegroundColor Green
 Write-Host "  PowerShell      : qcatch add `"タスク内容`"" -ForegroundColor Green
 Write-Host "  PowerShell      : qcatch sort  （GEMINI_API_KEY 設定後）" -ForegroundColor Green
 Write-Host ""
