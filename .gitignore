@@ -1,25 +1,5 @@
-# PyInstaller ビルド成果物
-build/
-dist/
-*.spec
-qcatch.exe
-
-# Python
+data/
+*.exe
 __pycache__/
-*.py[cod]
-*.pyo
-
-# 生成ファイル
-docs/*.pptx
-
-# Claude Code 設定（マシン固有）
-.claude/
-
-# 個人設定（マシン固有）
-qcatch_config.json
-
-# データファイル（個人データ・コミット不要）
-data/inbox.txt
-data/sorted_tasks.md
-data/archive.txt
-data/sort_prompt.txt
+*.pyc
+.env
