@@ -1,5 +1,9 @@
 data/
 *.exe
+build/
+qcatch_config.json
+docs/*.pptx
+.claude/
 __pycache__/
 *.pyc
 .env
