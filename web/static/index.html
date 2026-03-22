@@ -217,6 +217,10 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       <button class="btn btn-ghost btn-sm" onclick="toggleTrash()" id="trash-toggle-btn">🗑 ゴミ箱</button>
     </div>
   </div>
+  <div style="margin-bottom:10px">
+    <input id="task-search" placeholder="🔍 タスクを検索…" oninput="filterTasks(this.value)"
+      style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit">
+  </div>
   <div id="tasks-list"></div>
   <!-- ゴミ箱（折りたたみ） -->
   <div id="trash-section" style="display:none;margin-top:20px">
@@ -701,10 +705,11 @@ function renderClDashItem(cl) {
 
 function renderTaskDashItem(t) {
   const catClass = CAT_COLORS[t.category] || 'cat-その他';
+  const subtag = t.tags && t.tags[0] ? `<span class="task-subtag">${esc(t.tags[0])}</span>` : '';
   return `<div class="dash-item type-task" id="dash-${t.id}">
     <div class="dash-item-icon">📌</div>
     <div class="dash-item-body">
-      <div class="dash-item-text">${esc(t.text)}</div>
+      <div class="dash-item-text">${esc(t.text)}${subtag}</div>
       <div class="dash-item-meta">${t.category?`<span class="task-cat ${catClass}">${esc(t.category)}</span> `:''}${fmtDate(t.created_at)}</div>
     </div>
     <div class="dash-item-actions">
@@ -1022,6 +1027,7 @@ async function loadChecklists() {
             <input type="checkbox" id="cli-${cl.id}-${idx}" ${item.done?'checked':''}
               onchange="toggleClItem('${cl.id}', ${idx}, this.checked)">
             <label for="cli-${cl.id}-${idx}">${esc(item.text)}</label>
+            <button class="btn btn-ghost btn-sm" style="opacity:.4;padding:2px 6px;font-size:11px" onclick="deleteClItem('${cl.id}',${idx})">×</button>
           </div>`).join('')}
       </div>
       <div class="checklist-footer">
@@ -1133,6 +1139,13 @@ async function addClItem(clId) {
   try {
     await api('POST', `/api/checklists/${clId}/items`, {text});
     inp.value = '';
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function deleteClItem(clId, idx) {
+  try {
+    await api('DELETE', `/api/checklists/${clId}/items/${idx}`);
     loadChecklists();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
@@ -1366,6 +1379,19 @@ async function clearSubtag(taskId) {
     await api('PATCH', `/api/tasks/${taskId}`, {tags: []});
     loadTasks();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+function filterTasks(query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll('#tasks-list .task-item').forEach(el => {
+    const txt = (el.querySelector('.task-text')?.textContent || '').toLowerCase();
+    el.style.display = (!q || txt.includes(q)) ? '' : 'none';
+  });
+  // セクションヘッダーも隠す（全アイテム非表示なら）
+  document.querySelectorAll('#tasks-list .cat-section').forEach(sec => {
+    const visible = [...sec.querySelectorAll('.task-item')].some(i => i.style.display !== 'none');
+    sec.style.display = visible ? '' : 'none';
+  });
 }
 
 // ── バッジ更新 ────────────────────────────────────────────────────────

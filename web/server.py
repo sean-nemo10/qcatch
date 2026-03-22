@@ -321,6 +321,16 @@ def add_checklist_item(checklist_id: str, body: TaskIn):
     return cl.model_dump()
 
 
+@app.delete("/api/checklists/{checklist_id}/items/{item_index}", status_code=204)
+def delete_checklist_item(checklist_id: str, item_index: int):
+    """チェックリストのアイテムを削除。"""
+    cl = _find_checklist(checklist_id)
+    if item_index < 0 or item_index >= len(cl.items):
+        raise HTTPException(400, "item_index が範囲外です")
+    cl.items.pop(item_index)
+    save_data(_app_data)
+
+
 @app.delete("/api/checklists/{checklist_id}", status_code=204)
 def delete_checklist(checklist_id: str):
     idx = _find_checklist_idx(checklist_id)
