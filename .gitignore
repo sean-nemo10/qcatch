@@ -7,3 +7,6 @@ docs/*.pptx
 __pycache__/
 *.pyc
 .env
+# スクリーンショット（公開時に実画面を撮り直してコミットする）
+Screenshot*.png
+web/static/screenshot-*.png
