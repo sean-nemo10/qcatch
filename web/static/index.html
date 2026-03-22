@@ -179,9 +179,15 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .inbox-add-row{display:flex;gap:8px;margin-bottom:6px}
 .inbox-add-row input{flex:1;padding:9px 12px;background:#1a1a2e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit}
 .inbox-add-row input:focus{outline:none;border-color:#4fc3f7}
-.inbox-tool-row{display:flex;gap:8px;align-items:center}
-.inbox-due-input{padding:6px 10px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;color:#e0e0e0;font-size:12px;font-family:inherit;width:140px}
+.inbox-tool-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.inbox-due-input{padding:6px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;color:#e0e0e0;font-size:12px;font-family:inherit;width:130px}
 .inbox-due-input:focus{outline:none;border-color:#4fc3f7}
+.inbox-date-hint{font-size:11px;color:#4fc3f7;padding:2px 0;display:none}
+.inbox-opts-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.quick-shortcut{padding:3px 8px;font-size:11px;background:#0f2547;border:1px solid #0f3460;border-radius:5px;color:#a0b4cc;cursor:pointer}
+.quick-shortcut:hover{border-color:#4fc3f7;color:#e0e0e0}
+.longterm-toggle{opacity:.45;transition:opacity .15s,background .15s}
+.longterm-toggle.active{opacity:1;background:#0f3460;border-color:#4fc3f7;color:#4fc3f7}
 /* ── ホーム画面 ── */
 .home-header{padding:20px 0 12px;font-size:24px;font-weight:700;color:#e0e0e0}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -231,6 +237,10 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .task-drag-handle:active{cursor:grabbing}
 .task-item.drag-over{border-top:2px solid #4fc3f7;margin-top:-2px}
 .task-item.dragging{opacity:.4}
+.cat-drag-handle{color:#444;cursor:grab;padding:0 6px;font-size:16px;user-select:none;line-height:1;flex-shrink:0}
+.cat-drag-handle:active{cursor:grabbing}
+.cat-section.cat-dragging{opacity:.4}
+.cat-section.drag-over-cat{border-top:2px solid #4fc3f7;margin-top:-2px}
 .dash-item[draggable=true]{transition:border-color .15s,opacity .15s}
 .dash-item.drag-over{border-top:2px solid #4fc3f7;margin-top:-2px}
 .dash-item.dragging{opacity:.4}
@@ -312,14 +322,22 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   </div>
   <div class="inbox-add-bar">
     <div class="inbox-add-row">
-      <input id="quick-input" aria-label="新しいタスク" placeholder="タスクを入力… (Enter で追加)" onkeydown="handleQuickAdd(event)">
+      <input id="quick-input" aria-label="新しいタスク" placeholder="タスクを入力… 「明日」「来週」など日時も自然言語で" oninput="onQuickInput(this.value)" onkeydown="handleQuickAdd(event)">
+      <button class="btn btn-primary" onclick="addTask()">追加</button>
     </div>
-    <div class="inbox-tool-row">
-      <input id="quick-due-date" type="date" class="inbox-due-input" aria-label="期日（任意）" title="期日（任意）">
-      <button class="btn btn-primary" onclick="addTask()" style="flex:1">追加</button>
-      <button class="btn btn-warning btn-sm" onclick="runSort()">✨ AI 分類</button>
-      <span id="sort-status" style="font-size:12px;color:#888"></span>
+    <div id="quick-date-hint" class="inbox-date-hint"></div>
+    <div class="inbox-opts-row">
+      <input id="quick-due-date" type="date" class="inbox-due-input" aria-label="期日（任意）" title="期日">
+      <button class="quick-shortcut" onclick="setQuickDate(0)" title="今日">今日</button>
+      <button class="quick-shortcut" onclick="setQuickDate(1)" title="明日">明日</button>
+      <button class="quick-shortcut" onclick="setQuickDate(7)" title="来週">来週</button>
+      <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <button id="imp-quick-btn" class="imp-btn imp-medium" onclick="cycleQuickImp()" title="重要度">🟡中</button>
+        <button id="longterm-quick-btn" class="btn btn-ghost btn-sm longterm-toggle" onclick="toggleQuickLongterm()" title="長期タスクとして追加">🗂 長期</button>
+        <button class="btn btn-warning btn-sm" onclick="runSort()">✨ AI</button>
+      </span>
     </div>
+    <span id="sort-status" style="font-size:12px;color:#888"></span>
   </div>
 </div>
 
@@ -982,10 +1000,30 @@ async function loadDashboard() {
       container.innerHTML += html;
     }
 
-    // ── 今日のフォーカス（全タスク）──
-    if (tasks.length) {
+    // ── 注目（今日・明日の期日 or 重要度高）──
+    const _spotlight = (() => {
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + 2); cutoff.setHours(0,0,0,0);
+      return tasks.filter(t => t.importance === 'high' || (t.due_date && new Date(t.due_date) < cutoff));
+    })();
+    const _spotIds = new Set(_spotlight.map(t => t.id));
+    const _restTasks = tasks.filter(t => !_spotIds.has(t.id));
+
+    if (_spotlight.length) {
+      let html = `<div class="dash-section" style="border:1px solid #e65100;background:#1a0e00;border-radius:8px">
+        <div class="dash-section-title"><h2 style="color:#ffb300">🔥 注目</h2><span class="count">${_spotlight.length}</span></div>`;
+      _spotlight.forEach(t => { html += renderTaskDashItem(t, clData.checklists); });
+      html += '</div>';
+      container.innerHTML += html;
+    }
+    if (_restTasks.length) {
       let html = `<div class="dash-section">
-        <div class="dash-section-title"><h2>🎯 フォーカス</h2><span class="count">${tasks.length}</span></div>`;
+        <div class="dash-section-title"><h2>📋 タスク</h2><span class="count">${_restTasks.length}</span></div>`;
+      _restTasks.forEach(t => { html += renderTaskDashItem(t, clData.checklists); });
+      html += '</div>';
+      container.innerHTML += html;
+    } else if (!_spotlight.length && tasks.length) {
+      let html = `<div class="dash-section">
+        <div class="dash-section-title"><h2>📋 タスク</h2><span class="count">${tasks.length}</span></div>`;
       tasks.forEach(t => { html += renderTaskDashItem(t, clData.checklists); });
       html += '</div>';
       container.innerHTML += html;
@@ -1152,6 +1190,7 @@ let _taskDragId = null;
 let _taskDragCat = null;
 
 function taskDragStart(event, id) {
+  event.stopPropagation(); // cat-section の dragstart に伝播させない
   _taskDragId = id;
   const el = document.getElementById('ti-' + id);
   _taskDragCat = el ? el.dataset.cat : null;
@@ -1194,6 +1233,44 @@ async function taskDrop(event, targetId, targetCat) {
   } catch(e) { showStatus('並び替えエラー: ' + e.message, 'error'); }
 }
 
+// ── カテゴリ並び替え（localStorage）──────────────────────────────────
+const DEFAULT_CAT_ORDER = ['仕事','プライベート','買い物','学習','その他'];
+function getTasksCatOrder() {
+  try {
+    const s = JSON.parse(localStorage.getItem('qcatch_tasks_cat_order') || 'null');
+    if (Array.isArray(s) && s.length === DEFAULT_CAT_ORDER.length) return s;
+  } catch(e) {}
+  return [...DEFAULT_CAT_ORDER];
+}
+function saveTasksCatOrder(o) { localStorage.setItem('qcatch_tasks_cat_order', JSON.stringify(o)); }
+
+let _catDragCat = null;
+function catDragStart(event, cat) {
+  event.stopPropagation();
+  _catDragCat = cat;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => { document.getElementById('catsec-' + cat)?.classList.add('cat-dragging'); }, 0);
+}
+function catDragOver(event, cat) {
+  if (!_catDragCat || cat === _catDragCat) return;
+  event.preventDefault(); event.stopPropagation();
+  document.querySelectorAll('.cat-section').forEach(e => e.classList.remove('drag-over-cat'));
+  document.getElementById('catsec-' + cat)?.classList.add('drag-over-cat');
+}
+function catDragLeave(event) { event.currentTarget.classList.remove('drag-over-cat'); }
+function catDrop(event, targetCat) {
+  event.preventDefault(); event.stopPropagation();
+  document.querySelectorAll('.cat-section').forEach(el => el.classList.remove('drag-over-cat','cat-dragging'));
+  if (!_catDragCat || _catDragCat === targetCat) { _catDragCat = null; return; }
+  const order = getTasksCatOrder();
+  const fi = order.indexOf(_catDragCat), ti = order.indexOf(targetCat);
+  if (fi < 0 || ti < 0) { _catDragCat = null; return; }
+  order.splice(fi, 1); order.splice(ti, 0, _catDragCat);
+  _catDragCat = null;
+  saveTasksCatOrder(order);
+  loadTasks();
+}
+
 // ── 期日クイック選択 ──────────────────────────────────────────────────
 function setDueQuick(daysFromNow) {
   const d = new Date();
@@ -1221,8 +1298,69 @@ async function dashTrash(id) {
 }
 
 // ── Quick Add ─────────────────────────────────────────────────────────
+let _quickImp = 'medium';
+let _quickLongterm = false;
+
 function handleQuickAdd(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTask(); }
+}
+
+function setQuickDate(daysFromNow) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  document.getElementById('quick-due-date').value = d.toISOString().slice(0, 10);
+}
+
+function cycleQuickImp() {
+  _quickImp = IMP_CYCLE[_quickImp] || 'medium';
+  const btn = document.getElementById('imp-quick-btn');
+  btn.className = `imp-btn imp-${_quickImp}`;
+  btn.textContent = IMP_LABEL[_quickImp];
+}
+
+function toggleQuickLongterm() {
+  _quickLongterm = !_quickLongterm;
+  document.getElementById('longterm-quick-btn').classList.toggle('active', _quickLongterm);
+}
+
+function parseNaturalDate(text) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const toISO = d => d.toISOString().slice(0,10);
+  const addDays = n => { const d = new Date(today); d.setDate(d.getDate()+n); return d; };
+  const WD = ['日','月','火','水','木','金','土'];
+
+  if (/明後日|あさって/.test(text)) return toISO(addDays(2));
+  if (/明日|あした/.test(text)) return toISO(addDays(1));
+  if (/今日|本日/.test(text)) return toISO(today);
+  if (/今週末/.test(text)) return toISO(addDays(6 - today.getDay() || 7));
+  const nwd = text.match(/来週([月火水木金土日])曜?/);
+  if (nwd) { const t = WD.indexOf(nwd[1]); const d = addDays(7); while (d.getDay()!==t) d.setDate(d.getDate()+1); return toISO(d); }
+  if (/再来週/.test(text)) return toISO(addDays(14));
+  if (/来週/.test(text)) return toISO(addDays(7));
+  if (/月末|今月末/.test(text)) return toISO(new Date(today.getFullYear(), today.getMonth()+1, 0));
+  const ml = text.match(/(\d+)[ヶか]月後/);
+  if (ml) { const d = new Date(today); d.setMonth(d.getMonth()+parseInt(ml[1])); return toISO(d); }
+  const wl = text.match(/(\d+)週間?後/);
+  if (wl) return toISO(addDays(parseInt(wl[1])*7));
+  const dl = text.match(/(\d+)日後/);
+  if (dl) return toISO(addDays(parseInt(dl[1])));
+  const md = text.match(/(\d{1,2})月(\d{1,2})日/);
+  if (md) { const d = new Date(today.getFullYear(), parseInt(md[1])-1, parseInt(md[2])); if (d < today) d.setFullYear(d.getFullYear()+1); return toISO(d); }
+  const iso = text.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2,'0')}-${iso[3].padStart(2,'0')}`;
+  return null;
+}
+
+function onQuickInput(text) {
+  const hint = document.getElementById('quick-date-hint');
+  const dateISO = parseNaturalDate(text);
+  if (dateISO) {
+    document.getElementById('quick-due-date').value = dateISO;
+    hint.textContent = `📅 ${dateISO} を検出`;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
 }
 
 async function addTask() {
@@ -1231,10 +1369,14 @@ async function addTask() {
   if (!text) return;
   const dueEl = document.getElementById('quick-due-date');
   const due_date = dueEl && dueEl.value ? dueEl.value + 'T00:00:00' : undefined;
+  const body = { text, importance: _quickImp };
+  if (due_date) body.due_date = due_date;
+  if (_quickLongterm) body.status = 'longterm';
   try {
-    await api('POST', '/api/tasks', due_date ? {text, due_date} : {text});
+    await api('POST', '/api/tasks', body);
     inp.value = '';
     if (dueEl) dueEl.value = '';
+    document.getElementById('quick-date-hint').style.display = 'none';
     loadInbox();
     showStatus('追加しました: ' + text.slice(0,30), 'success', 3000);
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
@@ -1308,7 +1450,7 @@ async function loadTasks() {
 
   // カテゴリ別にグループ化（手動順 → スコア降順）
   const groups = {};
-  const ORDER = ['仕事','プライベート','買い物','学習','その他'];
+  const ORDER = getTasksCatOrder();
   tasks.forEach(t => {
     const cat = t.category || 'その他';
     if (!groups[cat]) groups[cat] = [];
@@ -1377,8 +1519,13 @@ async function loadTasks() {
   container.innerHTML = ORDER.filter(c => groups[c]).map(cat => {
     const folded = foldState[cat] ? 'folded' : '';
     return `
-    <div class="cat-section ${folded}" id="catsec-${cat}">
+    <div class="cat-section ${folded}" id="catsec-${cat}" draggable="true"
+      ondragstart="catDragStart(event,'${cat}')"
+      ondragover="catDragOver(event,'${cat}')"
+      ondragleave="catDragLeave(event)"
+      ondrop="catDrop(event,'${cat}')">
       <div class="cat-header" onclick="toggleCatFold('${cat}', document.getElementById('catsec-${cat}'))">
+        <span class="cat-drag-handle" title="ドラッグしてカテゴリを並び替え" onclick="event.stopPropagation()">⠿</span>
         <h3>${esc(cat)}</h3>
         <span class="cat-count">${groups[cat].length}</span>
         <span class="cat-fold-icon">▾</span>

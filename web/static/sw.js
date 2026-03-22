@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qcatch-v7';
+const CACHE_NAME = 'qcatch-v9';
 const STATIC_URLS = [
   '/', '/static/index.html', '/manifest.json',
   '/static/icon-192.png', '/static/icon-512.png',

@@ -107,6 +107,7 @@ class TaskIn(BaseModel):
     category: Optional[Category] = None
     due_date: Optional[datetime] = None
     importance: Optional[Importance] = None
+    status: Optional[str] = None  # longterm / inbox (default)
 
 
 class TaskPatch(BaseModel):
@@ -196,7 +197,14 @@ def get_tasks(status: Optional[str] = None):
 @app.post("/api/tasks", status_code=201)
 def add_task(body: TaskIn):
     """タスクを inbox として追加。"""
-    task = Task(text=body.text, category=body.category, due_date=body.due_date)
+    status = body.status if body.status in ("inbox", "longterm") else "inbox"
+    task = Task(
+        text=body.text,
+        category=body.category,
+        due_date=body.due_date,
+        importance=body.importance or "medium",
+        status=status,
+    )
     _app_data.tasks.append(task)
     save_data_bg(_app_data)
     return task.model_dump()
