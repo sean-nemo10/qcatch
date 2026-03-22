@@ -187,6 +187,11 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   <div class="form-card">
     <h3>新しいチェックリスト</h3>
     <input id="cl-name" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
+    <div class="form-row" style="align-items:center;margin-bottom:10px">
+      <label style="font-size:12px;color:#888;white-space:nowrap;margin-right:6px">期日（任意）</label>
+      <input id="cl-due" type="datetime-local" class="form-input" style="margin:0;flex:1">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cl-due').value=''">クリア</button>
+    </div>
     <div id="cl-items-inputs">
       <div class="form-row"><input placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>
     </div>
@@ -354,7 +359,7 @@ async function loadDashboard() {
     ]);
     container.innerHTML = '';
 
-    // Inbox 件数の案内
+    // Inbox 案内
     if (inboxData.tasks.length > 0) {
       container.innerHTML += `
         <div class="dash-section">
@@ -366,54 +371,22 @@ async function loadDashboard() {
         </div>`;
     }
 
-    // チェックリスト（未完了アイテムあり）
     const activeCls = clData.checklists.filter(cl => cl.items.some(i => !i.done));
-    if (activeCls.length) {
+    const clWithDue  = activeCls.filter(cl => cl.due_date).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
+    const clNoDue    = activeCls.filter(cl => !cl.due_date);
+    const tasks      = tasksData.tasks;
+    const hasAnything = activeCls.length || tasks.length || recData.recurring.length || inboxData.tasks.length;
+
+    // ── 期日あり（チェックリスト） ──
+    if (clWithDue.length) {
       let html = `<div class="dash-section">
-        <div class="dash-section-title"><h2>📋 チェックリスト</h2><span class="count">${activeCls.length}</span></div>`;
-      activeCls.forEach(cl => {
-        const done = cl.items.filter(i => i.done).length;
-        const total = cl.items.length;
-        const pct = total ? Math.round(done / total * 100) : 0;
-        const remaining = cl.items.filter(i => !i.done);
-        html += `<div class="dash-item type-checklist">
-          <div class="dash-item-icon">📋</div>
-          <div class="dash-item-body">
-            <div class="dash-item-text">${esc(cl.name)}</div>
-            <div class="cl-mini-bar"><div class="cl-mini-bar-fill" style="width:${pct}%"></div></div>
-            <div class="dash-item-meta">${done}/${total} 完了 — 残り: ${remaining.slice(0,3).map(i=>esc(i.text)).join('、')}${remaining.length>3?'…':''}</div>
-          </div>
-          <div class="dash-item-actions">
-            <button class="btn btn-ghost btn-sm" onclick="switchTabByName('checklists')">開く</button>
-          </div>
-        </div>`;
-      });
+        <div class="dash-section-title"><h2>📅 期日あり</h2><span class="count">${clWithDue.length}</span></div>`;
+      clWithDue.forEach(cl => html += renderClDashItem(cl));
       html += '</div>';
       container.innerHTML += html;
     }
 
-    // 定期タスク一覧
-    if (recData.recurring.length) {
-      let html = `<div class="dash-section">
-        <div class="dash-section-title"><h2>🔄 定期タスク</h2><span class="count">${recData.recurring.length}</span></div>`;
-      recData.recurring.forEach(r => {
-        const freqLabel = r.frequency === 'daily' ? '毎日'
-          : r.frequency === 'monthly' ? `毎月 ${r.day_of_month} 日`
-          : '毎週 ' + (r.days_of_week.map(d => WEEKDAY_NAMES[d]).join('・') || '未設定');
-        html += `<div class="dash-item type-recurring">
-          <div class="dash-item-icon">🔄</div>
-          <div class="dash-item-body">
-            <div class="dash-item-text">${esc(r.text)}</div>
-            <div class="dash-item-meta">${freqLabel}${r.category?' · '+esc(r.category):''}${r.last_generated_date?' · 最終: '+r.last_generated_date:''}</div>
-          </div>
-        </div>`;
-      });
-      html += '</div>';
-      container.innerHTML += html;
-    }
-
-    // タスク（日付グループ）
-    const tasks = tasksData.tasks;
+    // ── タスク（日付グループ）──
     if (tasks.length) {
       const groups = groupByDate(tasks);
       const ORDER = ['今日', '昨日', '今週', 'それ以前'];
@@ -421,34 +394,83 @@ async function loadDashboard() {
         <div class="dash-section-title"><h2>📌 タスク</h2><span class="count">${tasks.length}</span></div>`;
       ORDER.forEach(label => {
         if (!groups[label]?.length) return;
-        html += `<div class="dash-date-group">
-          <div class="dash-date-label">${label}</div>`;
-        groups[label].forEach(t => {
-          const catClass = CAT_COLORS[t.category] || 'cat-その他';
-          html += `<div class="dash-item type-task" id="dash-${t.id}">
-            <div class="dash-item-icon">📌</div>
-            <div class="dash-item-body">
-              <div class="dash-item-text">${esc(t.text)}</div>
-              <div class="dash-item-meta">${t.category?`<span class="task-cat ${catClass}">${esc(t.category)}</span> `:''}${fmtDate(t.created_at)}</div>
-            </div>
-            <div class="dash-item-actions">
-              <button class="btn btn-success btn-sm" onclick="dashComplete('${t.id}')">完了</button>
-              <button class="btn btn-ghost btn-sm" onclick="dashTrash('${t.id}')">削除</button>
-            </div>
-          </div>`;
-        });
+        html += `<div class="dash-date-group"><div class="dash-date-label">${label}</div>`;
+        groups[label].forEach(t => { html += renderTaskDashItem(t); });
         html += '</div>';
       });
       html += '</div>';
       container.innerHTML += html;
     }
 
-    if (!activeCls.length && !tasks.length && !recData.recurring.length && !inboxData.tasks.length) {
+    // ── 定期タスク ──
+    if (recData.recurring.length) {
+      let html = `<div class="dash-section">
+        <div class="dash-section-title"><h2>🔄 定期タスク</h2><span class="count">${recData.recurring.length}</span></div>`;
+      recData.recurring.forEach(r => {
+        const freq = r.frequency === 'daily' ? '毎日'
+          : r.frequency === 'monthly' ? `毎月 ${r.day_of_month} 日`
+          : '毎週 ' + (r.days_of_week.map(d => WEEKDAY_NAMES[d]).join('・') || '未設定');
+        html += `<div class="dash-item type-recurring">
+          <div class="dash-item-icon">🔄</div>
+          <div class="dash-item-body">
+            <div class="dash-item-text">${esc(r.text)}</div>
+            <div class="dash-item-meta">${freq}${r.category?' · '+esc(r.category):''}${r.last_generated_date?' · 最終: '+r.last_generated_date:''}</div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      container.innerHTML += html;
+    }
+
+    // ── 期日なしチェックリスト（最下部）──
+    if (clNoDue.length) {
+      let html = `<div class="dash-section">
+        <div class="dash-section-title"><h2>📋 チェックリスト</h2><span class="count">${clNoDue.length}</span></div>`;
+      clNoDue.forEach(cl => html += renderClDashItem(cl));
+      html += '</div>';
+      container.innerHTML += html;
+    }
+
+    if (!hasAnything) {
       container.innerHTML = '<div class="empty">すべてのタスクが完了しています 🎉</div>';
     }
   } catch(e) {
     container.innerHTML = `<div class="empty" style="color:#e53935">読み込みエラー: ${esc(e.message)}</div>`;
   }
+}
+
+function renderClDashItem(cl) {
+  const done = cl.items.filter(i => i.done).length;
+  const total = cl.items.length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const remaining = cl.items.filter(i => !i.done);
+  const overdue = cl.due_date && isDue(cl.due_date);
+  return `<div class="dash-item type-checklist">
+    <div class="dash-item-icon">📋</div>
+    <div class="dash-item-body">
+      <div class="dash-item-text">${esc(cl.name)}${cl.due_date?` <span style="font-size:11px;color:${overdue?'#ff7043':'#888'}">📅 ${fmtDatetime(cl.due_date)}</span>`:''}</div>
+      <div class="cl-mini-bar"><div class="cl-mini-bar-fill" style="width:${pct}%"></div></div>
+      <div class="dash-item-meta">${done}/${total} 完了 — 残り: ${remaining.slice(0,3).map(i=>esc(i.text)).join('、')}${remaining.length>3?'…':''}</div>
+    </div>
+    <div class="dash-item-actions">
+      <button class="btn btn-ghost btn-sm" onclick="switchTabByName('checklists')">開く</button>
+    </div>
+  </div>`;
+}
+
+function renderTaskDashItem(t) {
+  const catClass = CAT_COLORS[t.category] || 'cat-その他';
+  return `<div class="dash-item type-task" id="dash-${t.id}">
+    <div class="dash-item-icon">📌</div>
+    <div class="dash-item-body">
+      <div class="dash-item-text">${esc(t.text)}</div>
+      <div class="dash-item-meta">${t.category?`<span class="task-cat ${catClass}">${esc(t.category)}</span> `:''}${fmtDate(t.created_at)}</div>
+    </div>
+    <div class="dash-item-actions">
+      <button class="btn btn-success btn-sm" onclick="dashComplete('${t.id}')">完了</button>
+      <button class="btn btn-ghost btn-sm" onclick="dashTrash('${t.id}')">削除</button>
+    </div>
+  </div>`;
 }
 
 function groupByDate(tasks) {
@@ -709,8 +731,12 @@ async function loadChecklists() {
     return `
     <div class="checklist-card">
       <div class="checklist-head">
-        <h3>${esc(cl.name)}</h3>
+        <div style="flex:1;min-width:0">
+          <h3>${esc(cl.name)}</h3>
+          ${cl.due_date ? `<div style="font-size:11px;color:${isDue(cl.due_date)?'#ff7043':'#888'};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
+        </div>
         <span class="cl-progress">${done}/${total}</span>
+        <button class="btn btn-ghost btn-sm" onclick="editClDue('${cl.id}','${cl.due_date||''}')">期日</button>
         <button class="btn btn-ghost btn-sm" onclick="resetChecklist('${cl.id}')">リセット</button>
         <button class="btn btn-danger btn-sm" onclick="deleteChecklist('${cl.id}')">削除</button>
       </div>
@@ -745,13 +771,41 @@ async function createChecklist() {
   if (!name) { showStatus('チェックリスト名を入力してください', 'error', 2000); return; }
   const items = [...document.querySelectorAll('.cl-item-input')]
     .map(i => i.value.trim()).filter(Boolean);
+  const dueRaw = document.getElementById('cl-due').value;
+  const due_date = dueRaw ? new Date(dueRaw).toISOString() : null;
   try {
-    await api('POST', '/api/checklists', {name, items});
+    await api('POST', '/api/checklists', {name, items, due_date});
     document.getElementById('cl-name').value = '';
+    document.getElementById('cl-due').value = '';
     document.getElementById('cl-items-inputs').innerHTML = '<div class="form-row"><input placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>';
     showStatus('チェックリストを作成しました', 'success');
     loadChecklists();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function editClDue(clId, currentDue) {
+  const current = currentDue ? new Date(currentDue).toISOString().slice(0,16) : '';
+  const val = prompt('期日を入力（空欄でクリア）\n形式: YYYY-MM-DDTHH:MM', current);
+  if (val === null) return; // キャンセル
+  const due_date = val.trim() ? new Date(val.trim()).toISOString() : null;
+  try {
+    await api('PATCH', `/api/checklists/${clId}`, {due_date});
+    showStatus('期日を更新しました', 'success', 2000);
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+function isDue(isoStr) {
+  if (!isoStr) return false;
+  return new Date(isoStr) <= new Date();
+}
+
+function fmtDatetime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+  const base = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+  return hasTime ? `${base} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : base;
 }
 
 async function toggleClItem(clId, idx, done) {

@@ -35,6 +35,7 @@ class ChecklistTemplate(BaseModel):
     id: str = Field(default_factory=_new_id)
     name: str
     items: list[ChecklistItem] = Field(default_factory=list)
+    due_date: Optional[datetime] = None
 
 
 class RecurringRule(BaseModel):

@@ -80,6 +80,12 @@ class TaskPatch(BaseModel):
 class ChecklistIn(BaseModel):
     name: str
     items: list[str] = []
+    due_date: Optional[datetime] = None
+
+
+class ChecklistPatch(BaseModel):
+    name: Optional[str] = None
+    due_date: Optional[datetime] = None  # None を明示的に送ると期日クリア
 
 
 class ChecklistItemPatch(BaseModel):
@@ -251,10 +257,23 @@ def create_checklist(body: ChecklistIn):
     checklist = ChecklistTemplate(
         name=body.name,
         items=[ChecklistItem(text=t) for t in body.items if t.strip()],
+        due_date=body.due_date,
     )
     _app_data.checklists.append(checklist)
     save_data(_app_data)
     return checklist.model_dump()
+
+
+@app.patch("/api/checklists/{checklist_id}")
+def patch_checklist(checklist_id: str, body: ChecklistPatch):
+    """チェックリストの名前・期日を更新。"""
+    cl = _find_checklist(checklist_id)
+    if body.name is not None:
+        cl.name = body.name
+    if "due_date" in body.model_fields_set:
+        cl.due_date = body.due_date
+    save_data(_app_data)
+    return cl.model_dump()
 
 
 @app.patch("/api/checklists/{checklist_id}/items")
