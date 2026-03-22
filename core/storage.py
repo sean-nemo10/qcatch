@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import date, datetime
+import threading
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from core.models import AppData, Category, RecurringRule, Task
@@ -41,14 +43,23 @@ def load_data() -> AppData:
         return AppData()
 
 
+_save_lock = threading.Lock()
+
+
 def save_data(data: AppData) -> None:
     """AppData を tasks.json にアトミック書き込み（tmp → rename）。"""
-    tmp = TASKS_FILE.with_suffix(".tmp")
-    tmp.write_text(
-        data.model_dump_json(indent=2, exclude_none=False),
-        encoding="utf-8",
-    )
-    tmp.replace(TASKS_FILE)
+    with _save_lock:
+        tmp = TASKS_FILE.with_suffix(".tmp")
+        tmp.write_text(
+            data.model_dump_json(indent=2, exclude_none=False),
+            encoding="utf-8",
+        )
+        tmp.replace(TASKS_FILE)
+
+
+def save_data_bg(data: AppData) -> None:
+    """バックグラウンドスレッドで保存（HTTPレスポンスをブロックしない）。"""
+    threading.Thread(target=save_data, args=(data,), daemon=True).start()
 
 
 # ── inbox.txt 吸い上げ ────────────────────────────────────────────────────────
@@ -226,6 +237,49 @@ def check_recurring(data: AppData) -> list[str]:
     return added_texts
 
 
+# ── アーカイブ（古い完了タスクを別ファイルへ退避） ──────────────────────────
+
+ARCHIVE_DAYS = 30
+
+
+def archive_old_done(data: AppData) -> int:
+    """
+    completed_at が ARCHIVE_DAYS 日以上前の done タスクを年別アーカイブへ退避する。
+    戻り値: 退避したタスク数。
+    """
+    cutoff = datetime.now() - timedelta(days=ARCHIVE_DAYS)
+    to_archive = [
+        t
+        for t in data.tasks
+        if t.status == "done" and t.completed_at and t.completed_at < cutoff
+    ]
+    if not to_archive:
+        return 0
+
+    # 年別にグループ化してアーカイブファイルへ追記
+    by_year: dict[int, list] = defaultdict(list)
+    for t in to_archive:
+        by_year[t.completed_at.year].append(t)
+
+    for year, tasks in by_year.items():
+        archive_file = DATA_DIR / f"archive_{year}.json"
+        existing: list[dict] = []
+        if archive_file.exists():
+            try:
+                existing = json.loads(archive_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        existing.extend(t.model_dump(mode="json") for t in tasks)
+        archive_file.write_text(
+            json.dumps(existing, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    archive_ids = {t.id for t in to_archive}
+    data.tasks = [t for t in data.tasks if t.id not in archive_ids]
+    return len(to_archive)
+
+
 # ── 起動時の初期化シーケンス ─────────────────────────────────────────────────
 
 
@@ -244,12 +298,14 @@ def initialize() -> tuple[AppData, dict[str, int]]:
     migrated = migrate_from_existing(data)
     siphoned = siphon_inbox(data)
     recurring_added = check_recurring(data)
+    archived = archive_old_done(data)
 
-    if migrated or siphoned or recurring_added:
+    if migrated or siphoned or recurring_added or archived:
         save_data(data)
 
     return data, {
         "migrated": migrated,
         "siphoned": siphoned,
         "recurring": len(recurring_added),
+        "archived": archived,
     }

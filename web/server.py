@@ -25,7 +25,7 @@ from core.models import (
     Task,
 )
 from core import storage
-from core.storage import load_data, save_data, siphon_inbox
+from core.storage import load_data, save_data, save_data_bg, siphon_inbox
 
 # パス解決
 if getattr(sys, "frozen", False):
@@ -60,7 +60,8 @@ def startup():
     global _app_data
     _app_data, stats = storage.initialize()
     print(
-        f"[qcatch] 起動完了 — 移行:{stats['migrated']} 吸い上げ:{stats['siphoned']} 定期:{stats['recurring']}"
+        f"[qcatch] 起動完了 — 移行:{stats['migrated']} 吸い上げ:{stats['siphoned']} "
+        f"定期:{stats['recurring']} アーカイブ:{stats['archived']}"
     )
 
 
@@ -151,7 +152,7 @@ def add_task(body: TaskIn):
     """タスクを inbox として追加。"""
     task = Task(text=body.text, category=body.category)
     _app_data.tasks.append(task)
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return task.model_dump()
 
 
@@ -173,7 +174,7 @@ def update_task(task_id: str, body: TaskPatch):
         task.tags = body.tags
     if body.text is not None and body.text.strip():
         task.text = body.text.strip()
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return task.model_dump()
 
 
@@ -190,7 +191,7 @@ def bulk_complete(ids: list[str]):
             updated.append(task.model_dump())
         except HTTPException:
             pass
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return {"updated": updated}
 
 
@@ -199,7 +200,7 @@ def delete_task(task_id: str):
     """タスクを完全削除（ゴミ箱からの完全削除用）。"""
     idx = _find_task_idx(task_id)
     _app_data.tasks.pop(idx)
-    save_data(_app_data)
+    save_data_bg(_app_data)
 
 
 # ── /api/sort ─────────────────────────────────────────────────────────────────
@@ -256,7 +257,7 @@ def sort_tasks():
             task.category = s.category
 
     ai.update_few_shot(_app_data)
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return {"sorted": len(sorted_tasks)}
 
 
@@ -276,7 +277,7 @@ def create_checklist(body: ChecklistIn):
         due_date=body.due_date,
     )
     _app_data.checklists.append(checklist)
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return checklist.model_dump()
 
 
@@ -288,7 +289,7 @@ def patch_checklist(checklist_id: str, body: ChecklistPatch):
         cl.name = body.name
     if "due_date" in body.model_fields_set:
         cl.due_date = body.due_date
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return cl.model_dump()
 
 
@@ -302,7 +303,7 @@ def update_checklist_item(checklist_id: str, body: ChecklistItemPatch):
         cl.items[body.item_index].done = body.done
     if body.text is not None and body.text.strip():
         cl.items[body.item_index].text = body.text.strip()
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return cl.model_dump()
 
 
@@ -312,7 +313,7 @@ def reset_checklist(checklist_id: str):
     cl = _find_checklist(checklist_id)
     for item in cl.items:
         item.done = False
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return cl.model_dump()
 
 
@@ -321,7 +322,7 @@ def add_checklist_item(checklist_id: str, body: TaskIn):
     """チェックリストにアイテムを追加。"""
     cl = _find_checklist(checklist_id)
     cl.items.append(ChecklistItem(text=body.text))
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return cl.model_dump()
 
 
@@ -332,14 +333,14 @@ def delete_checklist_item(checklist_id: str, item_index: int):
     if item_index < 0 or item_index >= len(cl.items):
         raise HTTPException(400, "item_index が範囲外です")
     cl.items.pop(item_index)
-    save_data(_app_data)
+    save_data_bg(_app_data)
 
 
 @app.delete("/api/checklists/{checklist_id}", status_code=204)
 def delete_checklist(checklist_id: str):
     idx = _find_checklist_idx(checklist_id)
     _app_data.checklists.pop(idx)
-    save_data(_app_data)
+    save_data_bg(_app_data)
 
 
 # ── /api/recurring ────────────────────────────────────────────────────────────
@@ -362,7 +363,7 @@ def create_recurring(body: RecurringIn):
         day_of_month=body.day_of_month,
     )
     _app_data.recurring.append(rule)
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return rule.model_dump()
 
 
@@ -372,7 +373,7 @@ def delete_recurring(rule_id: str):
     if idx is None:
         raise HTTPException(404, "定期ルールが見つかりません")
     _app_data.recurring.pop(idx)
-    save_data(_app_data)
+    save_data_bg(_app_data)
 
 
 # ── /api/suggest-tags / apply-tags ───────────────────────────────────────────
@@ -407,7 +408,7 @@ def apply_tags(body: ApplyTagsIn):
             applied += 1
         except HTTPException:
             pass
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return {"applied": applied}
 
 
@@ -439,7 +440,7 @@ def apply_splits(body: ApplySplitsIn):
             applied += 1
         except HTTPException:
             pass
-    save_data(_app_data)
+    save_data_bg(_app_data)
     return {"applied": applied}
 
 
