@@ -294,25 +294,23 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
 # ── メイン関数 ────────────────────────────────────────────────────────────────
 
 
-def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict]]:
+def _resolve_fn_calls(
+    user_message: str,
+    data: AppData,
+    api_key: str,
+) -> tuple[list, list[dict], bool]:
     """
-    ユーザーメッセージを Gemini Function Calling で処理する。
-    Returns: (ai_response_text, ui_actions)
-    ui_actions 例: [{"type": "refresh"}, {"type": "switch_tab", "tab": "checklists"}]
+    Function Calling ループを非ストリーミングで回し、
+    (最終コンテンツリスト, ui_actions, had_function_calls) を返す。
+    最後のモデル応答（テキスト）は contents に含まれない。
     """
-    global _history
-
-    try:
-        from google import genai
-        from google.genai import types
-    except ImportError:
-        return "google-genai が未インストールです: pip install google-genai", []
+    from google import genai
+    from google.genai import types
 
     client = genai.Client(api_key=api_key)
     system_prompt = _build_system_prompt(data)
     tools = _build_tools()
 
-    # 会話履歴 → types.Content リスト
     contents: list = []
     for msg in _history[-10:]:
         contents.append(
@@ -321,10 +319,9 @@ def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict
     contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
     ui_actions: list[dict] = []
-    final_text = ""
+    had_fn = False
 
-    # Function Calling ループ（最大5ターン）
-    for _ in range(5):
+    for _ in range(4):
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=contents,
@@ -334,11 +331,7 @@ def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict
                 temperature=0.3,
             ),
         )
-
         model_content = response.candidates[0].content
-        contents.append(model_content)
-
-        # Function Call を抽出
         fn_calls = [
             p.function_call
             for p in model_content.parts
@@ -346,10 +339,13 @@ def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict
         ]
 
         if not fn_calls:
-            final_text = response.text or ""
+            if not had_fn:
+                # 最初のターンがテキスト直接応答 → contents にモデル応答を追加して終わり
+                contents.append(model_content)
             break
 
-        # 各関数を実行してレスポンスを追加
+        had_fn = True
+        contents.append(model_content)
         fn_response_parts = []
         for fc in fn_calls:
             result, actions = _execute_fn(fc.name, dict(fc.args), data)
@@ -364,7 +360,105 @@ def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict
             )
         contents.append(types.Content(role="user", parts=fn_response_parts))
 
-    # 履歴更新（テキストのみ保存）
+    return contents, ui_actions, had_fn
+
+
+def chat_stream(user_message: str, data: AppData, api_key: str):
+    """
+    ストリーミング版チャット。Generator[dict, None, None]:
+      {"type": "text", "chunk": str}
+      {"type": "done", "actions": list}
+    """
+    global _history
+
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        yield {"type": "text", "chunk": "google-genai が未インストールです"}
+        yield {"type": "done", "actions": []}
+        return
+
+    try:
+        contents, ui_actions, had_fn = _resolve_fn_calls(user_message, data, api_key)
+    except Exception as e:
+        yield {"type": "text", "chunk": f"エラー: {e}"}
+        yield {"type": "done", "actions": []}
+        return
+
+    client = genai.Client(api_key=api_key)
+    system_prompt = _build_system_prompt(data)
+    final_text = ""
+
+    if had_fn:
+        # Function Call 後 → ツールなしでストリーミング最終応答
+        try:
+            stream = client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.3,
+                ),
+            )
+            for chunk in stream:
+                if chunk.text:
+                    final_text += chunk.text
+                    yield {"type": "text", "chunk": chunk.text}
+        except Exception as e:
+            yield {"type": "text", "chunk": f"ストリームエラー: {e}"}
+    else:
+        # 直接テキスト応答（最後の model Content からテキスト取得）
+        last = contents[-1]
+        text = (
+            "".join(p.text for p in last.parts if hasattr(p, "text") and p.text)
+            if hasattr(last, "parts")
+            else ""
+        )
+        final_text = text or "（応答がありませんでした）"
+        yield {"type": "text", "chunk": final_text}
+
+    _history.append({"role": "user", "text": user_message})
+    _history.append({"role": "model", "text": final_text})
+    if len(_history) > 20:
+        _history = _history[-20:]
+
+    yield {"type": "done", "actions": ui_actions}
+
+
+def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict]]:
+    """非ストリーミング版（後方互換）。"""
+    global _history
+
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        return "google-genai が未インストールです: pip install google-genai", []
+
+    contents, ui_actions, had_fn = _resolve_fn_calls(user_message, data, api_key)
+    client = genai.Client(api_key=api_key)
+    system_prompt = _build_system_prompt(data)
+    final_text = ""
+
+    if had_fn:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.3,
+            ),
+        )
+        final_text = response.text or ""
+    else:
+        last = contents[-1]
+        final_text = (
+            "".join(p.text for p in last.parts if hasattr(p, "text") and p.text)
+            if hasattr(last, "parts")
+            else ""
+        )
+
     _history.append({"role": "user", "text": user_message})
     _history.append({"role": "model", "text": final_text})
     if len(_history) > 20:

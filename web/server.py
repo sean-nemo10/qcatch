@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -75,6 +75,7 @@ class TaskIn(BaseModel):
 class TaskPatch(BaseModel):
     status: Optional[str] = None
     category: Optional[Category] = None
+    tags: Optional[list[str]] = None
 
 
 class ChecklistIn(BaseModel):
@@ -166,6 +167,8 @@ def update_task(task_id: str, body: TaskPatch):
             task.completed_at = None
     if body.category is not None:
         task.category = body.category
+    if body.tags is not None:
+        task.tags = body.tags
     save_data(_app_data)
     return task.model_dump()
 
@@ -445,6 +448,32 @@ def chat_endpoint(body: ChatIn):
     except Exception as e:
         raise HTTPException(500, str(e))
     return {"message": text, "actions": actions}
+
+
+@app.post("/api/chat/stream")
+def chat_stream_endpoint(body: ChatIn):
+    """Server-Sent Events でチャット応答をストリーミング。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            400, "GEMINI_API_KEY が設定されていません。設定タブで入力してください。"
+        )
+
+    def generate():
+        try:
+            for event in chat_mod.chat_stream(body.message, _app_data, api_key):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/chat/clear", status_code=204)
