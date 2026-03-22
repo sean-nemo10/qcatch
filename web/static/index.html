@@ -314,9 +314,8 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <!-- ── Inbox ── -->
 <div id="pane-inbox" class="pane content">
   <div class="inbox-body">
-    <div style="margin-bottom:10px">
-      <input id="inbox-search" aria-label="Inbox検索" placeholder="🔍 Inbox を検索…" oninput="filterInbox(this.value)"
-        style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit">
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('dashboard')">📊 ダッシュボード</button>
     </div>
     <div id="inbox-list" class="task-list"></div>
   </div>
@@ -966,17 +965,16 @@ async function loadDashboard() {
         </div>
       </div>`;
 
-    // Inbox 案内
-    if (inboxData.tasks.length > 0) {
-      container.innerHTML += `
-        <div class="dash-section">
-          <div style="padding:10px 14px;background:#1a2a10;border:1px solid #2e7d32;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
-            <span>📥</span>
-            <span>Inbox に <strong>${inboxData.tasks.length} 件</strong> の未分類タスクがあります</span>
-            <button class="btn btn-warning btn-sm" style="margin-left:auto" onclick="switchTabByName('inbox')">Inbox を見る</button>
-          </div>
-        </div>`;
-    }
+    // Inbox 案内（常時表示）
+    const _inboxCount = inboxData.tasks.length;
+    container.innerHTML += `
+      <div class="dash-section">
+        <div style="padding:10px 14px;background:${_inboxCount > 0 ? '#1a2a10' : '#0d1f2d'};border:1px solid ${_inboxCount > 0 ? '#2e7d32' : '#0f3460'};border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
+          <span>📥</span>
+          <span>${_inboxCount > 0 ? `Inbox に <strong>${_inboxCount} 件</strong> の未分類タスク` : 'Inbox は空です'}</span>
+          <button class="btn ${_inboxCount > 0 ? 'btn-warning' : 'btn-ghost'} btn-sm" style="margin-left:auto" onclick="switchTabByName('inbox')">📥 Inbox へ</button>
+        </div>
+      </div>`;
 
     const activeCls = clData.checklists.filter(cl => cl.items.some(i => !i.done));
     const clWithDue  = activeCls.filter(cl => cl.due_date).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
@@ -1412,13 +1410,6 @@ async function classifyInbox(taskId, category) {
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
-function filterInbox(query) {
-  const q = query.trim().toLowerCase();
-  document.querySelectorAll('#inbox-list .task-item').forEach(el => {
-    const txt = (el.querySelector('.task-text')?.textContent || '').toLowerCase();
-    el.style.display = (!q || txt.includes(q)) ? '' : 'none';
-  });
-}
 
 async function runSort() {
   const el = document.getElementById('sort-status');
@@ -2548,7 +2539,6 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     // 現在のタブの検索フォームにフォーカス
     const searchMap = {
-      inbox: 'inbox-search',
       tasks: 'task-search',
     };
     const searchId = searchMap[_activePane];
