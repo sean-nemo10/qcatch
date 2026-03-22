@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -40,6 +41,13 @@ CATEGORIES: list[Category] = ["仕事", "プライベート", "買い物", "学�
 
 app = FastAPI(title="qcatch")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # ── 静的ファイル配信 ──────────────────────────────────────────────────────────
 
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
@@ -48,6 +56,22 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 @app.get("/", response_class=FileResponse)
 def index():
     return FileResponse(str(_STATIC_DIR / "index.html"))
+
+
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse(
+        str(_STATIC_DIR / "manifest.json"), media_type="application/manifest+json"
+    )
+
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(
+        str(_STATIC_DIR / "sw.js"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
 
 
 # ── 起動イベント ──────────────────────────────────────────────────────────────
@@ -106,6 +130,14 @@ class RecurringIn(BaseModel):
     category: Optional[Category] = None
     frequency: str  # daily | weekly | monthly
     days_of_week: list[int] = []
+    day_of_month: Optional[int] = None
+
+
+class RecurringPatch(BaseModel):
+    text: Optional[str] = None
+    category: Optional[Category] = None
+    frequency: Optional[str] = None
+    days_of_week: Optional[list[int]] = None
     day_of_month: Optional[int] = None
 
 
@@ -367,6 +399,27 @@ def create_recurring(body: RecurringIn):
     return rule.model_dump()
 
 
+@app.patch("/api/recurring/{rule_id}")
+def update_recurring(rule_id: str, body: RecurringPatch):
+    rule = next((r for r in _app_data.recurring if r.id == rule_id), None)
+    if rule is None:
+        raise HTTPException(404, "定期ルールが見つかりません")
+    if body.text is not None and body.text.strip():
+        rule.text = body.text.strip()
+    if "category" in body.model_fields_set:
+        rule.category = body.category
+    if body.frequency is not None:
+        if body.frequency not in ("daily", "weekly", "monthly"):
+            raise HTTPException(400, "frequency は daily / weekly / monthly のいずれか")
+        rule.frequency = body.frequency
+    if body.days_of_week is not None:
+        rule.days_of_week = body.days_of_week
+    if body.day_of_month is not None:
+        rule.day_of_month = body.day_of_month
+    save_data_bg(_app_data)
+    return rule.model_dump()
+
+
 @app.delete("/api/recurring/{rule_id}", status_code=204)
 def delete_recurring(rule_id: str):
     idx = next((i for i, r in enumerate(_app_data.recurring) if r.id == rule_id), None)
@@ -483,6 +536,32 @@ def chat_stream_endpoint(body: ChatIn):
     def generate():
         try:
             for event in chat_mod.chat_stream(body.message, _app_data, api_key):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/chat/briefing")
+def chat_briefing_endpoint(body: ChatIn):
+    """朝のブリーフィング: 直近24h完了実績 + todo タスクをコンテキストにした専用SSE。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            400, "GEMINI_API_KEY が設定されていません。設定タブで入力してください。"
+        )
+
+    def generate():
+        try:
+            for event in chat_mod.briefing_stream(_app_data, api_key):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

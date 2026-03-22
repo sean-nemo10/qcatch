@@ -460,6 +460,72 @@ def chat_stream(user_message: str, data: AppData, api_key: str):
     yield {"type": "done", "actions": ui_actions}
 
 
+def briefing_stream(data: AppData, api_key: str):
+    """
+    朝のブリーフィング専用ストリーム。会話履歴を使わず独立して実行する。
+    直近24h完了タスクと todo タスクをコンテキストに、トップ3を提示する。
+    yield フォーマットは chat_stream と同一。
+    """
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        yield {"type": "text", "chunk": "google-genai が未インストールです"}
+        yield {"type": "done", "actions": []}
+        return
+
+    from datetime import timedelta
+
+    now = datetime.now()
+    cutoff = now - timedelta(hours=24)
+
+    done_recent = [
+        t
+        for t in data.tasks
+        if t.status == "done" and t.completed_at and t.completed_at >= cutoff
+    ]
+    todo_tasks = [t for t in data.tasks if t.status == "todo"]
+
+    done_lines = "\n".join(f"- {t.text}" for t in done_recent) or "（なし）"
+    todo_lines = (
+        "\n".join(
+            f"- [{t.category or '未分類'}] {t.text} (作成: {t.created_at.strftime('%Y-%m-%d') if t.created_at else '不明'})"
+            for t in todo_tasks
+        )
+        or "（なし）"
+    )
+
+    system_prompt = (
+        "あなたは有能なタスク管理アシスタントです。日本語で返答してください。\n"
+        "過去24時間の完了タスク（実績）をまず一言で労い、"
+        "未完了タスクから『今日絶対に終わらせるべきトップ3』を選んでください。\n"
+        "長ったらしい前置きは不要。マークダウンの箇条書きで、"
+        "選んだ理由をポジティブかつ簡潔に一言添えること。"
+    )
+    context = (
+        f"【直近24時間で完了したタスク】\n{done_lines}\n\n"
+        f"【現在の未完了タスク一覧】\n{todo_lines}"
+    )
+
+    try:
+        client = genai.Client(api_key=api_key)
+        stream = client.models.generate_content_stream(
+            model="gemini-2.5-flash",
+            contents=[types.Content(role="user", parts=[types.Part(text=context)])],
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.4,
+            ),
+        )
+        for chunk in stream:
+            if chunk.text:
+                yield {"type": "text", "chunk": chunk.text}
+    except Exception as e:
+        yield {"type": "text", "chunk": f"エラー: {e}"}
+
+    yield {"type": "done", "actions": []}
+
+
 def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict]]:
     """非ストリーミング版（後方互換）。"""
     global _history
