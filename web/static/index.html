@@ -886,6 +886,7 @@ async function loadTasks() {
               </div>
             </div>
             <button class="btn btn-ghost btn-sm" id="edit-btn-${t.id}" onclick="startEdit('${t.id}');event.stopPropagation()">編集</button>
+            <button class="btn btn-ghost btn-sm" onclick="backToInbox('${t.id}');event.stopPropagation()" title="Inbox に戻す">↩</button>
             <button class="btn btn-success btn-sm" onclick="completeOne('${t.id}');event.stopPropagation()">完了</button>
             <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}');event.stopPropagation()">削除</button>
           </div>
@@ -967,6 +968,14 @@ async function completeOne(id) {
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
+async function backToInbox(id) {
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {status: 'inbox', category: null});
+    showStatus('Inbox に戻しました', 'info', 2000);
+    loadTasks(); updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
 async function moveToTrash(id) {
   try {
     await api('PATCH', `/api/tasks/${id}`, {status:'trashed'});
@@ -1025,7 +1034,7 @@ async function loadChecklists() {
     <div class="checklist-card">
       <div class="checklist-head">
         <div style="flex:1;min-width:0">
-          <h3>${esc(cl.name)}</h3>
+          <h3 ondblclick="startClNameEdit('${cl.id}',this)" style="cursor:text" title="ダブルクリックで名前を編集">${esc(cl.name)}</h3>
           ${cl.due_date ? `<div style="font-size:11px;color:${isDue(cl.due_date)?'#ff7043':'#888'};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
         </div>
         <span class="cl-progress">${done}/${total}</span>
@@ -1038,7 +1047,7 @@ async function loadChecklists() {
           <div class="cl-item ${item.done?'done':''}">
             <input type="checkbox" id="cli-${cl.id}-${idx}" ${item.done?'checked':''}
               onchange="toggleClItem('${cl.id}', ${idx}, this.checked)">
-            <label for="cli-${cl.id}-${idx}">${esc(item.text)}</label>
+            <label for="cli-${cl.id}-${idx}" ondblclick="startClItemEdit('${cl.id}',${idx},this)" style="cursor:text">${esc(item.text)}</label>
             <button class="btn btn-ghost btn-sm" style="opacity:.4;padding:2px 6px;font-size:11px" onclick="deleteClItem('${cl.id}',${idx})">×</button>
           </div>`).join('')}
       </div>
@@ -1153,6 +1162,54 @@ async function addClItem(clId) {
     inp.value = '';
     loadChecklists();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+function startClItemEdit(clId, idx, labelEl) {
+  const orig = labelEl.textContent;
+  const inp = document.createElement('input');
+  inp.value = orig;
+  inp.style.cssText = 'flex:1;padding:2px 6px;background:#0f2547;border:1px solid #4fc3f7;border-radius:4px;color:#e0e0e0;font-size:14px;font-family:inherit';
+  labelEl.replaceWith(inp);
+  inp.focus(); inp.select();
+  const finish = async () => {
+    const text = inp.value.trim() || orig;
+    const lbl = document.createElement('label');
+    lbl.textContent = text;
+    lbl.style.cursor = 'text';
+    lbl.setAttribute('for', `cli-${clId}-${idx}`);
+    lbl.ondblclick = () => startClItemEdit(clId, idx, lbl);
+    inp.replaceWith(lbl);
+    if (text !== orig) {
+      try { await api('PATCH', `/api/checklists/${clId}/items`, {item_index: idx, text}); }
+      catch(e) { showStatus('エラー: ' + e.message, 'error'); loadChecklists(); }
+    }
+  };
+  inp.onblur = finish;
+  inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = orig; inp.blur(); } };
+}
+
+function startClNameEdit(clId, h3El) {
+  const orig = h3El.textContent;
+  const inp = document.createElement('input');
+  inp.value = orig;
+  inp.style.cssText = 'font-size:15px;font-weight:600;background:transparent;border:none;border-bottom:1px solid #4fc3f7;color:#e0e0e0;width:100%;font-family:inherit;outline:none';
+  h3El.replaceWith(inp);
+  inp.focus(); inp.select();
+  const finish = async () => {
+    const name = inp.value.trim() || orig;
+    const newH3 = document.createElement('h3');
+    newH3.textContent = name;
+    newH3.style.cursor = 'text';
+    newH3.title = 'ダブルクリックで名前を編集';
+    newH3.ondblclick = () => startClNameEdit(clId, newH3);
+    inp.replaceWith(newH3);
+    if (name !== orig) {
+      try { await api('PATCH', `/api/checklists/${clId}`, {name}); }
+      catch(e) { showStatus('エラー: ' + e.message, 'error'); loadChecklists(); }
+    }
+  };
+  inp.onblur = finish;
+  inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = orig; inp.blur(); } };
 }
 
 async function deleteClItem(clId, idx) {

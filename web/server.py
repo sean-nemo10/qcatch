@@ -92,7 +92,8 @@ class ChecklistPatch(BaseModel):
 
 class ChecklistItemPatch(BaseModel):
     item_index: int
-    done: bool
+    done: Optional[bool] = None
+    text: Optional[str] = None
 
 
 class ChecklistReset(BaseModel):
@@ -166,7 +167,7 @@ def update_task(task_id: str, body: TaskPatch):
             task.completed_at = datetime.now()
         elif body.status in ("inbox", "todo", "trashed"):
             task.completed_at = None
-    if body.category is not None:
+    if "category" in body.model_fields_set:
         task.category = body.category
     if body.tags is not None:
         task.tags = body.tags
@@ -293,11 +294,14 @@ def patch_checklist(checklist_id: str, body: ChecklistPatch):
 
 @app.patch("/api/checklists/{checklist_id}/items")
 def update_checklist_item(checklist_id: str, body: ChecklistItemPatch):
-    """チェックリストのアイテムを完了/未完了に切り替え。"""
+    """チェックリストのアイテムを更新（完了状態またはテキスト）。"""
     cl = _find_checklist(checklist_id)
     if body.item_index < 0 or body.item_index >= len(cl.items):
         raise HTTPException(400, "item_index が範囲外です")
-    cl.items[body.item_index].done = body.done
+    if body.done is not None:
+        cl.items[body.item_index].done = body.done
+    if body.text is not None and body.text.strip():
+        cl.items[body.item_index].text = body.text.strip()
     save_data(_app_data)
     return cl.model_dump()
 
