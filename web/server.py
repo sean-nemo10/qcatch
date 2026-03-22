@@ -76,6 +76,7 @@ class TaskPatch(BaseModel):
     status: Optional[str] = None
     category: Optional[Category] = None
     tags: Optional[list[str]] = None
+    text: Optional[str] = None
 
 
 class ChecklistIn(BaseModel):
@@ -169,6 +170,8 @@ def update_task(task_id: str, body: TaskPatch):
         task.category = body.category
     if body.tags is not None:
         task.tags = body.tags
+    if body.text is not None and body.text.strip():
+        task.text = body.text.strip()
     save_data(_app_data)
     return task.model_dump()
 

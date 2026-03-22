@@ -104,6 +104,15 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 /* ── サブタグチップ ── */
 .task-subtag{font-size:10px;padding:2px 7px;border-radius:8px;background:#1a3050;color:#4fc3f7;border:1px solid #0f3460;white-space:nowrap;margin-left:4px}
+/* ── Inbox カテゴリボタン ── */
+.cat-btns{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.cat-btn{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid;cursor:pointer;font-family:inherit;transition:opacity .15s;white-space:nowrap}
+.cat-btn:hover{opacity:.75}
+.cat-btn-仕事{background:#1565c0;color:#90caf9;border-color:#1976d2}
+.cat-btn-プライベート{background:#6a1b9a;color:#ce93d8;border-color:#7b1fa2}
+.cat-btn-買い物{background:#2e7d32;color:#a5d6a7;border-color:#388e3c}
+.cat-btn-学習{background:#e65100;color:#ffcc80;border-color:#f4511e}
+.cat-btn-その他{background:#37474f;color:#b0bec5;border-color:#546e7a}
 /* ── 空状態 ── */
 .empty{text-align:center;color:#555;padding:40px 20px;font-size:14px}
 /* ── 完了済みチェック ── */
@@ -373,6 +382,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 // ── 状態 ──────────────────────────────────────────────────────────────
 let selectedTaskIds = new Set();
 let pendingSuggestions = [];
+let _activePane = 'dashboard';
 
 const WEEKDAY_NAMES = ['月','火','水','木','金','土','日'];
 const CAT_COLORS = {
@@ -386,6 +396,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('pane-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
+  _activePane = name;
   if (name === 'chat') { loadApiKeyToChat(); }
   else if (name === 'dashboard') loadDashboard();
   else if (name === 'inbox') loadInbox();
@@ -393,6 +404,13 @@ function switchTab(name) {
   else if (name === 'checklists') loadChecklists();
   else if (name === 'recurring') loadRecurring();
   else if (name === 'settings') loadSettings();
+}
+
+function reloadActivePane() {
+  if (_activePane === 'dashboard') loadDashboard();
+  else if (_activePane === 'inbox') loadInbox();
+  else if (_activePane === 'tasks') loadTasks();
+  else if (_activePane === 'checklists') loadChecklists();
 }
 
 let trashVisible = false;
@@ -546,7 +564,7 @@ async function sendChat() {
             container.scrollTop = container.scrollHeight;
           } else if (event.type === 'done') {
             for (const action of event.actions || []) {
-              if (action.type === 'refresh') updateBadges();
+              if (action.type === 'refresh') { updateBadges(); reloadActivePane(); }
               else if (action.type === 'switch_tab') switchTabByName(action.tab);
             }
           } else if (event.type === 'error') {
@@ -767,6 +785,8 @@ async function addTask() {
 }
 
 // ── Inbox ─────────────────────────────────────────────────────────────
+const CATS = ['仕事','プライベート','買い物','学習','その他'];
+
 async function loadInbox() {
   const data = await api('GET', '/api/tasks?status=inbox');
   const list = document.getElementById('inbox-list');
@@ -774,12 +794,25 @@ async function loadInbox() {
   document.getElementById('badge-inbox').textContent = tasks.length;
   if (!tasks.length) { list.innerHTML = '<div class="empty">inbox は空です ✓</div>'; return; }
   list.innerHTML = tasks.map(t => `
-    <div class="task-item" id="ti-${t.id}">
-      <div class="task-text">${esc(t.text)}</div>
-      <div class="task-actions">
+    <div class="task-item" id="ti-${t.id}" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px;width:100%">
+        <div class="task-text" style="flex:1">${esc(t.text)}</div>
         <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}')">削除</button>
       </div>
+      <div class="cat-btns">
+        ${CATS.map(c => `<button class="cat-btn cat-btn-${c}" onclick="classifyInbox('${t.id}','${c}')">${c}</button>`).join('')}
+      </div>
     </div>`).join('');
+}
+
+async function classifyInbox(taskId, category) {
+  try {
+    await api('PATCH', `/api/tasks/${taskId}`, {status: 'todo', category});
+    const el = document.getElementById('ti-' + taskId);
+    if (el) { el.style.opacity = '0.4'; el.style.pointerEvents = 'none'; }
+    setTimeout(() => loadInbox(), 300);
+    updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
 async function runSort() {
@@ -830,8 +863,12 @@ async function loadTasks() {
       return header + subTasks.map(t => `
         <div class="task-item ${selectedTaskIds.has(t.id)?'selected':''}" id="ti-${t.id}" onclick="toggleSelect('${t.id}', event)">
           <input type="checkbox" ${selectedTaskIds.has(t.id)?'checked':''} onclick="toggleSelect('${t.id}', event)">
-          <div class="task-text">${esc(t.text)}${t.tags&&t.tags[0]?`<span class="task-subtag">${esc(t.tags[0])} <span onclick="clearSubtag('${t.id}');event.stopPropagation()" style="cursor:pointer;opacity:.7;margin-left:2px">×</span></span>`:''}</div>
+          <div class="task-text" id="txt-${t.id}">${esc(t.text)}${t.tags&&t.tags[0]?`<span class="task-subtag">${esc(t.tags[0])} <span onclick="clearSubtag('${t.id}');event.stopPropagation()" style="cursor:pointer;opacity:.7;margin-left:2px">×</span></span>`:''}</div>
+          <input class="task-edit-input" id="edit-${t.id}" value="${esc(t.text)}" style="display:none;flex:1;padding:3px 8px;background:#0f2547;border:1px solid #4fc3f7;border-radius:4px;color:#e0e0e0;font-size:14px;font-family:inherit"
+            onkeydown="if(event.key==='Enter')saveEdit('${t.id}');if(event.key==='Escape')cancelEdit('${t.id}')"
+            onblur="saveEdit('${t.id}')">
           <div class="task-actions" onclick="e=>e.stopPropagation()">
+            <button class="btn btn-ghost btn-sm" id="edit-btn-${t.id}" onclick="startEdit('${t.id}');event.stopPropagation()">編集</button>
             <button class="btn btn-success btn-sm" onclick="completeOne('${t.id}');event.stopPropagation()">完了</button>
             <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}');event.stopPropagation()">削除</button>
           </div>
@@ -1296,6 +1333,34 @@ function closeSplitsModal() {
   document.getElementById('modal-splits').classList.remove('show');
 }
 
+function startEdit(id) {
+  document.getElementById('txt-' + id).style.display = 'none';
+  const inp = document.getElementById('edit-' + id);
+  inp.style.display = 'inline-block';
+  inp.focus();
+  inp.select();
+  document.getElementById('edit-btn-' + id).textContent = '✕';
+  document.getElementById('edit-btn-' + id).onclick = (e) => { e.stopPropagation(); cancelEdit(id); };
+}
+
+function cancelEdit(id) {
+  document.getElementById('txt-' + id).style.display = '';
+  document.getElementById('edit-' + id).style.display = 'none';
+  document.getElementById('edit-btn-' + id).textContent = '編集';
+  document.getElementById('edit-btn-' + id).onclick = (e) => { e.stopPropagation(); startEdit(id); };
+}
+
+async function saveEdit(id) {
+  const inp = document.getElementById('edit-' + id);
+  if (!inp || inp.style.display === 'none') return;
+  const text = inp.value.trim();
+  if (!text) { cancelEdit(id); return; }
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {text});
+    loadTasks();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
 async function clearSubtag(taskId) {
   try {
     await api('PATCH', `/api/tasks/${taskId}`, {tags: []});
@@ -1324,6 +1389,12 @@ function esc(str) {
 // ── 初期化 ────────────────────────────────────────────────────────────
 loadDashboard();
 updateBadges();
+
+// 60秒ごとに自動更新（チャットタブは除く）
+setInterval(() => {
+  updateBadges();
+  if (_activePane !== 'chat' && _activePane !== 'settings') reloadActivePane();
+}, 60000);
 </script>
 </body>
 </html>
