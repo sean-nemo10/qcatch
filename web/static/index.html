@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>qcatch</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0;height:100vh;display:flex;flex-direction:column}
+/* ── タブバー ── */
+.tabbar{display:flex;background:#16213e;border-bottom:2px solid #0f3460;flex-shrink:0}
+.tab{padding:12px 20px;cursor:pointer;color:#888;font-size:13px;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .2s}
+.tab:hover{color:#ccc}
+.tab.active{color:#4fc3f7;border-bottom-color:#4fc3f7;font-weight:600}
+/* ── メインコンテンツ ── */
+.content{flex:1;overflow-y:auto;padding:16px 20px}
+.pane{display:none}
+.pane.active{display:block}
+/* ── Quick Add ── */
+.quick-add{display:flex;gap:8px;margin-bottom:16px}
+.quick-add input{flex:1;padding:10px 14px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit}
+.quick-add input:focus{outline:none;border-color:#4fc3f7}
+/* ── ボタン ── */
+.btn{padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn-primary{background:#4fc3f7;color:#000;font-weight:600}
+.btn-success{background:#4caf50;color:#fff;font-weight:600}
+.btn-danger{background:#e53935;color:#fff}
+.btn-warning{background:#ff9800;color:#000}
+.btn-ghost{background:transparent;border:1px solid #555;color:#aaa}
+.btn-ghost:hover{border-color:#4fc3f7;color:#4fc3f7}
+.btn-sm{padding:5px 10px;font-size:12px}
+/* ── タスクリスト ── */
+.task-list{display:flex;flex-direction:column;gap:6px}
+.task-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460;cursor:default;transition:border-color .15s}
+.task-item:hover{border-color:#4fc3f7}
+.task-item.selected{border-color:#4fc3f7;background:#0f2547}
+.task-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#4fc3f7}
+.task-text{flex:1;font-size:14px;line-height:1.4}
+.task-cat{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap}
+.task-actions{display:flex;gap:6px;flex-shrink:0}
+.cat-仕事{background:#1565c0;color:#90caf9}
+.cat-プライベート{background:#6a1b9a;color:#ce93d8}
+.cat-買い物{background:#2e7d32;color:#a5d6a7}
+.cat-学習{background:#e65100;color:#ffcc80}
+.cat-その他{background:#37474f;color:#b0bec5}
+/* ── カテゴリセクション ── */
+.cat-section{margin-bottom:20px}
+.cat-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:6px 0}
+.cat-header h3{font-size:13px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px}
+.cat-count{font-size:11px;color:#666;padding:2px 8px;background:#16213e;border-radius:10px}
+/* ── ツールバー ── */
+.toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.toolbar-right{margin-left:auto;display:flex;gap:8px}
+/* ── バッジ ── */
+.badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;background:#0f3460;color:#4fc3f7;font-weight:600}
+/* ── チェックリスト ── */
+.checklist-card{background:#16213e;border:1px solid #0f3460;border-radius:10px;margin-bottom:12px;overflow:hidden}
+.checklist-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0f3460}
+.checklist-head h3{flex:1;font-size:15px;font-weight:600}
+.checklist-items{padding:10px 16px;display:flex;flex-direction:column;gap:6px}
+.cl-item{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1a2a4a}
+.cl-item:last-child{border-bottom:none}
+.cl-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#4fc3f7}
+.cl-item label{flex:1;font-size:14px;cursor:pointer}
+.cl-item.done label{text-decoration:line-through;color:#555}
+.cl-progress{font-size:12px;color:#888;margin-left:auto}
+.checklist-footer{padding:10px 16px;display:flex;gap:8px;border-top:1px solid #0f3460}
+/* ── 定期タスク ── */
+.recurring-card{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.recurring-info{flex:1}
+.recurring-info .text{font-size:14px;font-weight:600}
+.recurring-info .meta{font-size:12px;color:#888;margin-top:3px}
+/* ── フォーム ── */
+.form-card{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:16px;margin-bottom:16px}
+.form-card h3{font-size:14px;font-weight:600;margin-bottom:12px;color:#4fc3f7}
+.form-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.form-row input,.form-row select,.form-input,.form-select{padding:8px 12px;background:#0f3460;border:1px solid #1a4080;border-radius:6px;color:#e0e0e0;font-size:13px;font-family:inherit}
+.form-input{width:100%;margin-bottom:10px}
+.form-row input:focus,.form-row select:focus,.form-input:focus,.form-select:focus{outline:none;border-color:#4fc3f7}
+.weekday-picker{display:flex;gap:6px;flex-wrap:wrap}
+.wd-btn{padding:5px 10px;border:1px solid #555;border-radius:6px;cursor:pointer;font-size:12px;background:transparent;color:#aaa;font-family:inherit;transition:all .2s}
+.wd-btn.active{background:#0f3460;border-color:#4fc3f7;color:#4fc3f7}
+/* ── ステータス表示 ── */
+.status-bar{padding:8px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;display:none}
+.status-bar.show{display:block}
+.status-bar.info{background:#0f3460;color:#4fc3f7}
+.status-bar.success{background:#1b5e20;color:#a5d6a7}
+.status-bar.error{background:#b71c1c;color:#ffcdd2}
+/* ── 設定 ── */
+.setting-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #0f3460}
+.setting-row:last-child{border-bottom:none}
+.setting-label{width:160px;font-size:13px;color:#aaa}
+.setting-value{flex:1}
+/* ── タグ提案モーダル ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#1a1a2e;border:1px solid #0f3460;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;color:#4fc3f7}
+.suggestion-item{display:flex;align-items:center;gap:10px;padding:10px;background:#16213e;border-radius:8px;margin-bottom:8px}
+.suggestion-item input[type=checkbox]{width:16px;height:16px;accent-color:#4fc3f7}
+.suggestion-text{flex:1;font-size:13px}
+.suggestion-arrow{color:#4fc3f7;font-size:16px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+/* ── 空状態 ── */
+.empty{text-align:center;color:#555;padding:40px 20px;font-size:14px}
+/* ── 完了済みチェック ── */
+.done-mark{color:#4caf50;font-size:16px}
+</style>
+</head>
+<body>
+
+<!-- タブバー -->
+<div class="tabbar">
+  <div class="tab active" onclick="switchTab('inbox')">Inbox <span id="badge-inbox" class="badge">0</span></div>
+  <div class="tab" onclick="switchTab('tasks')">タスク <span id="badge-tasks" class="badge">0</span></div>
+  <div class="tab" onclick="switchTab('trash')">ゴミ箱 <span id="badge-trash" class="badge">0</span></div>
+  <div class="tab" onclick="switchTab('checklists')">チェックリスト</div>
+  <div class="tab" onclick="switchTab('recurring')">定期タスク</div>
+  <div class="tab" onclick="switchTab('settings')">設定</div>
+</div>
+
+<!-- ステータスバー -->
+<div id="status-bar" class="status-bar"></div>
+
+<!-- ── Inbox ── -->
+<div id="pane-inbox" class="pane active content">
+  <div class="quick-add">
+    <input id="quick-input" placeholder="タスクを入力して Enter… (Shift+Enter で改行)" onkeydown="handleQuickAdd(event)">
+    <button class="btn btn-primary" onclick="addTask()">追加</button>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-warning" onclick="runSort()">✨ AI 分類</button>
+    <span id="sort-status" style="font-size:12px;color:#888"></span>
+  </div>
+  <div id="inbox-list" class="task-list"></div>
+</div>
+
+<!-- ── タスク ── -->
+<div id="pane-tasks" class="pane content">
+  <div class="toolbar">
+    <button class="btn btn-success btn-sm" onclick="bulkComplete()">✓ 選択を完了</button>
+    <button class="btn btn-ghost btn-sm" onclick="selectAll('tasks')">全選択</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearSelection('tasks')">選択解除</button>
+    <span id="selected-count" style="font-size:12px;color:#888"></span>
+  </div>
+  <div id="tasks-list"></div>
+</div>
+
+<!-- ── ゴミ箱 ── -->
+<div id="pane-trash" class="pane content">
+  <div class="toolbar">
+    <span style="font-size:13px;color:#888">完了済み・削除済みのタスク</span>
+    <div class="toolbar-right">
+      <button class="btn btn-ghost btn-sm" onclick="loadTrash()">更新</button>
+    </div>
+  </div>
+  <div id="trash-list" class="task-list"></div>
+</div>
+
+<!-- ── チェックリスト ── -->
+<div id="pane-checklists" class="pane content">
+  <div class="form-card">
+    <h3>新しいチェックリスト</h3>
+    <input id="cl-name" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
+    <div id="cl-items-inputs">
+      <div class="form-row"><input placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>
+    </div>
+    <div class="form-row" style="margin-top:6px">
+      <button class="btn btn-ghost btn-sm" onclick="addClItemInput()">＋ アイテム追加</button>
+      <button class="btn btn-primary" onclick="createChecklist()">作成</button>
+    </div>
+  </div>
+  <div id="checklists-list"></div>
+</div>
+
+<!-- ── 定期タスク ── -->
+<div id="pane-recurring" class="pane content">
+  <div class="form-card">
+    <h3>新しい定期タスク</h3>
+    <input id="rec-text" class="form-input" placeholder="タスクのテキスト">
+    <div class="form-row">
+      <select id="rec-cat" class="form-select">
+        <option value="">カテゴリ（任意）</option>
+        <option>仕事</option><option>プライベート</option>
+        <option>買い物</option><option>学習</option><option>その他</option>
+      </select>
+      <select id="rec-freq" class="form-select" onchange="updateFreqUI()">
+        <option value="daily">毎日</option>
+        <option value="weekly">毎週</option>
+        <option value="monthly">毎月</option>
+      </select>
+    </div>
+    <div id="rec-weekly-ui" style="display:none;margin-bottom:10px">
+      <div style="font-size:12px;color:#888;margin-bottom:6px">曜日を選択:</div>
+      <div class="weekday-picker">
+        <button class="wd-btn" data-wd="0">月</button>
+        <button class="wd-btn" data-wd="1">火</button>
+        <button class="wd-btn" data-wd="2">水</button>
+        <button class="wd-btn" data-wd="3">木</button>
+        <button class="wd-btn" data-wd="4">金</button>
+        <button class="wd-btn" data-wd="5">土</button>
+        <button class="wd-btn" data-wd="6">日</button>
+      </div>
+    </div>
+    <div id="rec-monthly-ui" style="display:none;margin-bottom:10px">
+      <div style="font-size:12px;color:#888;margin-bottom:6px">毎月何日:</div>
+      <input id="rec-dom" type="number" min="1" max="31" class="form-input" style="width:100px" placeholder="日">
+    </div>
+    <button class="btn btn-primary" onclick="createRecurring()">登録</button>
+  </div>
+  <div id="recurring-list"></div>
+</div>
+
+<!-- ── 設定 ── -->
+<div id="pane-settings" class="pane content">
+  <div class="form-card">
+    <h3>AI バックエンド設定</h3>
+    <div class="setting-row">
+      <div class="setting-label">Sort バックエンド</div>
+      <div class="setting-value">
+        <select id="cfg-backend" class="form-select" onchange="saveConfig()">
+          <option value="auto">auto（自動）</option>
+          <option value="gemini">Gemini</option>
+          <option value="ollama">Ollama（ローカル）</option>
+          <option value="anthropic">Anthropic</option>
+        </select>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Ollama モデル</div>
+      <div class="setting-value">
+        <input id="cfg-ollama-model" class="form-input" style="margin:0" placeholder="例: phi4" onchange="saveConfig()">
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Ollama ホスト</div>
+      <div class="setting-value">
+        <input id="cfg-ollama-host" class="form-input" style="margin:0" placeholder="http://localhost:11434" onchange="saveConfig()">
+      </div>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h3>タグ変更提案（AI）</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:12px">
+      既存のタスクのカテゴリを AI が見直し、変更案を提示します。承認したもののみ反映されます。
+    </p>
+    <button class="btn btn-warning" onclick="suggestTags()">🔍 タグ変更を提案</button>
+  </div>
+</div>
+
+<!-- タグ提案モーダル -->
+<div id="modal-tags" class="modal-overlay">
+  <div class="modal">
+    <h2>タグ変更の提案</h2>
+    <p style="font-size:13px;color:#888;margin-bottom:16px">チェックしたものだけ変更されます。</p>
+    <div id="suggestions-list"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="applyTags()">選択を適用</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 状態 ──────────────────────────────────────────────────────────────
+let selectedTaskIds = new Set();
+let pendingSuggestions = [];
+
+const WEEKDAY_NAMES = ['月','火','水','木','金','土','日'];
+const CAT_COLORS = {
+  '仕事':'cat-仕事','プライベート':'cat-プライベート',
+  '買い物':'cat-買い物','学習':'cat-学習','その他':'cat-その他'
+};
+
+// ── タブ切り替え ──────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pane-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'inbox') loadInbox();
+  else if (name === 'tasks') loadTasks();
+  else if (name === 'trash') loadTrash();
+  else if (name === 'checklists') loadChecklists();
+  else if (name === 'recurring') loadRecurring();
+  else if (name === 'settings') loadSettings();
+}
+
+// ── ステータス表示 ────────────────────────────────────────────────────
+function showStatus(msg, type='info', duration=4000) {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.className = 'status-bar show ' + type;
+  if (duration) setTimeout(() => bar.classList.remove('show'), duration);
+}
+
+// ── API ヘルパー ──────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({detail: res.statusText}));
+    throw new Error(err.detail || res.statusText);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// ── Quick Add ─────────────────────────────────────────────────────────
+function handleQuickAdd(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTask(); }
+}
+
+async function addTask() {
+  const inp = document.getElementById('quick-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  try {
+    await api('POST', '/api/tasks', {text});
+    inp.value = '';
+    loadInbox();
+    showStatus('追加しました: ' + text.slice(0,30), 'success', 3000);
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+// ── Inbox ─────────────────────────────────────────────────────────────
+async function loadInbox() {
+  const data = await api('GET', '/api/tasks?status=inbox');
+  const list = document.getElementById('inbox-list');
+  const tasks = data.tasks;
+  document.getElementById('badge-inbox').textContent = tasks.length;
+  if (!tasks.length) { list.innerHTML = '<div class="empty">inbox は空です ✓</div>'; return; }
+  list.innerHTML = tasks.map(t => `
+    <div class="task-item" id="ti-${t.id}">
+      <div class="task-text">${esc(t.text)}</div>
+      <div class="task-actions">
+        <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}')">削除</button>
+      </div>
+    </div>`).join('');
+}
+
+async function runSort() {
+  const el = document.getElementById('sort-status');
+  el.textContent = '分類中...';
+  try {
+    const res = await api('POST', '/api/sort');
+    el.textContent = '';
+    showStatus(`✓ ${res.sorted} 件を分類しました`, 'success');
+    loadInbox();
+    updateBadges();
+  } catch(e) {
+    el.textContent = '';
+    showStatus('分類エラー: ' + e.message, 'error');
+  }
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────
+async function loadTasks() {
+  const data = await api('GET', '/api/tasks?status=todo');
+  const tasks = data.tasks;
+  document.getElementById('badge-tasks').textContent = tasks.length;
+
+  // カテゴリ別にグループ化
+  const groups = {};
+  const ORDER = ['仕事','プライベート','買い物','学習','その他'];
+  tasks.forEach(t => {
+    const cat = t.category || 'その他';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(t);
+  });
+
+  const container = document.getElementById('tasks-list');
+  if (!tasks.length) { container.innerHTML = '<div class="empty">タスクがありません</div>'; return; }
+
+  container.innerHTML = ORDER.filter(c => groups[c]).map(cat => `
+    <div class="cat-section">
+      <div class="cat-header">
+        <h3>${esc(cat)}</h3>
+        <span class="cat-count">${groups[cat].length}</span>
+      </div>
+      <div class="task-list">
+        ${groups[cat].map(t => `
+          <div class="task-item ${selectedTaskIds.has(t.id)?'selected':''}" id="ti-${t.id}" onclick="toggleSelect('${t.id}', event)">
+            <input type="checkbox" ${selectedTaskIds.has(t.id)?'checked':''} onclick="toggleSelect('${t.id}', event)">
+            <div class="task-text">${esc(t.text)}</div>
+            <div class="task-actions" onclick="e=>e.stopPropagation()">
+              <button class="btn btn-success btn-sm" onclick="completeOne('${t.id}');event.stopPropagation()">完了</button>
+              <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}');event.stopPropagation()">削除</button>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  updateSelectionCount();
+}
+
+function toggleSelect(id, e) {
+  if (e.target.tagName === 'BUTTON') return;
+  if (selectedTaskIds.has(id)) selectedTaskIds.delete(id);
+  else selectedTaskIds.add(id);
+  const el = document.getElementById('ti-' + id);
+  if (el) {
+    el.classList.toggle('selected', selectedTaskIds.has(id));
+    const cb = el.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = selectedTaskIds.has(id);
+  }
+  updateSelectionCount();
+}
+
+function updateSelectionCount() {
+  const el = document.getElementById('selected-count');
+  if (el) el.textContent = selectedTaskIds.size ? `${selectedTaskIds.size} 件選択中` : '';
+}
+
+function selectAll(tab) {
+  document.querySelectorAll('#tasks-list .task-item').forEach(el => {
+    const id = el.id.replace('ti-','');
+    selectedTaskIds.add(id);
+    el.classList.add('selected');
+    const cb = el.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = true;
+  });
+  updateSelectionCount();
+}
+
+function clearSelection() {
+  selectedTaskIds.clear();
+  document.querySelectorAll('#tasks-list .task-item').forEach(el => {
+    el.classList.remove('selected');
+    const cb = el.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = false;
+  });
+  updateSelectionCount();
+}
+
+async function bulkComplete() {
+  if (!selectedTaskIds.size) { showStatus('タスクを選択してください', 'info', 2000); return; }
+  try {
+    const res = await api('PATCH', '/api/tasks/bulk/complete', [...selectedTaskIds]);
+    selectedTaskIds.clear();
+    showStatus(`✓ ${res.updated.length} 件を完了しました`, 'success');
+    loadTasks();
+    updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function completeOne(id) {
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {status:'done'});
+    selectedTaskIds.delete(id);
+    showStatus('✓ 完了しました', 'success', 2000);
+    loadTasks();
+    updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function moveToTrash(id) {
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {status:'trashed'});
+    loadInbox(); loadTasks(); updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+// ── Trash ─────────────────────────────────────────────────────────────
+async function loadTrash() {
+  const data = await api('GET', '/api/tasks?status=done,trashed');
+  const tasks = data.tasks;
+  document.getElementById('badge-trash').textContent = tasks.length;
+  const list = document.getElementById('trash-list');
+  if (!tasks.length) { list.innerHTML = '<div class="empty">ゴミ箱は空です</div>'; return; }
+  list.innerHTML = tasks.map(t => `
+    <div class="task-item" id="ti-${t.id}">
+      <div class="task-text" style="color:${t.status==='done'?'#aaa':'#666'};${t.status==='trashed'?'text-decoration:line-through':''}">
+        ${t.status==='done'?'<span class="done-mark">✓</span> ':'🗑 '}${esc(t.text)}
+        ${t.category?`<span class="task-cat ${CAT_COLORS[t.category]||''}" style="margin-left:6px">${esc(t.category)}</span>`:''}
+      </div>
+      <div class="task-actions">
+        <button class="btn btn-ghost btn-sm" onclick="restoreTask('${t.id}')">元に戻す</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteForever('${t.id}')">完全削除</button>
+      </div>
+    </div>`).join('');
+}
+
+async function restoreTask(id) {
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {status:'todo'});
+    showStatus('タスクを復元しました', 'success', 2000);
+    loadTrash(); updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function deleteForever(id) {
+  if (!confirm('完全に削除しますか？この操作は取り消せません。')) return;
+  try {
+    await api('DELETE', `/api/tasks/${id}`);
+    showStatus('完全削除しました', 'info', 2000);
+    loadTrash(); updateBadges();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+// ── Checklists ────────────────────────────────────────────────────────
+async function loadChecklists() {
+  const data = await api('GET', '/api/checklists');
+  const container = document.getElementById('checklists-list');
+  if (!data.checklists.length) {
+    container.innerHTML = '<div class="empty">チェックリストがまだありません</div>'; return;
+  }
+  container.innerHTML = data.checklists.map(cl => {
+    const done = cl.items.filter(i => i.done).length;
+    const total = cl.items.length;
+    return `
+    <div class="checklist-card">
+      <div class="checklist-head">
+        <h3>${esc(cl.name)}</h3>
+        <span class="cl-progress">${done}/${total}</span>
+        <button class="btn btn-ghost btn-sm" onclick="resetChecklist('${cl.id}')">リセット</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteChecklist('${cl.id}')">削除</button>
+      </div>
+      <div class="checklist-items">
+        ${cl.items.map((item, idx) => `
+          <div class="cl-item ${item.done?'done':''}">
+            <input type="checkbox" id="cli-${cl.id}-${idx}" ${item.done?'checked':''}
+              onchange="toggleClItem('${cl.id}', ${idx}, this.checked)">
+            <label for="cli-${cl.id}-${idx}">${esc(item.text)}</label>
+          </div>`).join('')}
+      </div>
+      <div class="checklist-footer">
+        <input placeholder="アイテムを追加…" class="form-input" style="margin:0;flex:1" id="cl-add-${cl.id}"
+          onkeydown="if(event.key==='Enter')addClItem('${cl.id}')">
+        <button class="btn btn-ghost btn-sm" onclick="addClItem('${cl.id}')">追加</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addClItemInput() {
+  const c = document.getElementById('cl-items-inputs');
+  const count = c.querySelectorAll('input').length + 1;
+  const row = document.createElement('div');
+  row.className = 'form-row';
+  row.innerHTML = `<input placeholder="アイテム ${count}" class="cl-item-input" style="flex:1">`;
+  c.appendChild(row);
+}
+
+async function createChecklist() {
+  const name = document.getElementById('cl-name').value.trim();
+  if (!name) { showStatus('チェックリスト名を入力してください', 'error', 2000); return; }
+  const items = [...document.querySelectorAll('.cl-item-input')]
+    .map(i => i.value.trim()).filter(Boolean);
+  try {
+    await api('POST', '/api/checklists', {name, items});
+    document.getElementById('cl-name').value = '';
+    document.getElementById('cl-items-inputs').innerHTML = '<div class="form-row"><input placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>';
+    showStatus('チェックリストを作成しました', 'success');
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function toggleClItem(clId, idx, done) {
+  try {
+    await api('PATCH', `/api/checklists/${clId}/items`, {item_index: idx, done});
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function resetChecklist(clId) {
+  try {
+    await api('POST', `/api/checklists/${clId}/reset`);
+    showStatus('リセットしました', 'success', 2000);
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function addClItem(clId) {
+  const inp = document.getElementById('cl-add-' + clId);
+  const text = inp.value.trim();
+  if (!text) return;
+  try {
+    await api('POST', `/api/checklists/${clId}/items`, {text});
+    inp.value = '';
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function deleteChecklist(clId) {
+  if (!confirm('このチェックリストを削除しますか？')) return;
+  try {
+    await api('DELETE', `/api/checklists/${clId}`);
+    showStatus('削除しました', 'info', 2000);
+    loadChecklists();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+// ── Recurring ─────────────────────────────────────────────────────────
+function updateFreqUI() {
+  const freq = document.getElementById('rec-freq').value;
+  document.getElementById('rec-weekly-ui').style.display = freq === 'weekly' ? '' : 'none';
+  document.getElementById('rec-monthly-ui').style.display = freq === 'monthly' ? '' : 'none';
+}
+
+document.querySelectorAll('.wd-btn').forEach(btn => {
+  btn.addEventListener('click', () => btn.classList.toggle('active'));
+});
+
+async function createRecurring() {
+  const text = document.getElementById('rec-text').value.trim();
+  if (!text) { showStatus('タスクのテキストを入力してください', 'error', 2000); return; }
+  const freq = document.getElementById('rec-freq').value;
+  const cat = document.getElementById('rec-cat').value || null;
+  const days_of_week = freq === 'weekly'
+    ? [...document.querySelectorAll('.wd-btn.active')].map(b => parseInt(b.dataset.wd))
+    : [];
+  const day_of_month = freq === 'monthly'
+    ? parseInt(document.getElementById('rec-dom').value) || null
+    : null;
+  try {
+    await api('POST', '/api/recurring', {text, category:cat, frequency:freq, days_of_week, day_of_month});
+    document.getElementById('rec-text').value = '';
+    document.querySelectorAll('.wd-btn').forEach(b => b.classList.remove('active'));
+    showStatus('定期タスクを登録しました', 'success');
+    loadRecurring();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+async function loadRecurring() {
+  const data = await api('GET', '/api/recurring');
+  const container = document.getElementById('recurring-list');
+  if (!data.recurring.length) {
+    container.innerHTML = '<div class="empty">定期タスクがまだありません</div>'; return;
+  }
+  container.innerHTML = data.recurring.map(r => {
+    let freqLabel = r.frequency === 'daily' ? '毎日'
+      : r.frequency === 'monthly' ? `毎月 ${r.day_of_month} 日`
+      : '毎週 ' + (r.days_of_week.map(d => WEEKDAY_NAMES[d]).join('・') || '(曜日未設定)');
+    return `
+    <div class="recurring-card">
+      <div class="recurring-info">
+        <div class="text">${esc(r.text)}</div>
+        <div class="meta">${freqLabel}${r.category?' · '+esc(r.category):''}${r.last_generated_date?' · 最終: '+r.last_generated_date:''}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteRecurring('${r.id}')">削除</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteRecurring(id) {
+  if (!confirm('この定期タスクを削除しますか？')) return;
+  try {
+    await api('DELETE', `/api/recurring/${id}`);
+    showStatus('削除しました', 'info', 2000);
+    loadRecurring();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+// ── Settings ──────────────────────────────────────────────────────────
+async function loadSettings() {
+  const cfg = await api('GET', '/api/config');
+  document.getElementById('cfg-backend').value = cfg.sort_backend || 'auto';
+  document.getElementById('cfg-ollama-model').value = cfg.ollama_model || '';
+  document.getElementById('cfg-ollama-host').value = cfg.ollama_host || '';
+}
+
+async function saveConfig() {
+  const body = {
+    sort_backend: document.getElementById('cfg-backend').value,
+    ollama_model: document.getElementById('cfg-ollama-model').value,
+    ollama_host: document.getElementById('cfg-ollama-host').value,
+  };
+  try {
+    await api('POST', '/api/config', body);
+    showStatus('設定を保存しました', 'success', 2000);
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+// ── Tag Suggestion ────────────────────────────────────────────────────
+async function suggestTags() {
+  showStatus('AI がタグを分析中…', 'info', 0);
+  try {
+    const data = await api('POST', '/api/suggest-tags');
+    document.getElementById('status-bar').classList.remove('show');
+    if (!data.suggestions.length) {
+      showStatus('変更提案はありません（全て適切なカテゴリです）', 'success'); return;
+    }
+    pendingSuggestions = data.suggestions;
+    const list = document.getElementById('suggestions-list');
+    list.innerHTML = data.suggestions.map((s, i) => `
+      <div class="suggestion-item">
+        <input type="checkbox" id="sug-${i}" checked>
+        <div class="suggestion-text">
+          <strong>${esc(s.text)}</strong><br>
+          <span style="color:#888">${esc(s.current)}</span>
+          <span class="suggestion-arrow">→</span>
+          <span style="color:#4fc3f7">${esc(s.suggested)}</span>
+        </div>
+      </div>`).join('');
+    document.getElementById('modal-tags').classList.add('show');
+  } catch(e) {
+    document.getElementById('status-bar').classList.remove('show');
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
+async function applyTags() {
+  const checked = pendingSuggestions.filter((_, i) =>
+    document.getElementById('sug-' + i)?.checked
+  );
+  if (!checked.length) { closeModal(); return; }
+  try {
+    const res = await api('POST', '/api/apply-tags', {
+      suggestions: checked.map(s => ({id: s.id, suggested: s.suggested}))
+    });
+    closeModal();
+    showStatus(`✓ ${res.applied} 件のタグを変更しました`, 'success');
+    loadTasks();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+function closeModal() {
+  document.getElementById('modal-tags').classList.remove('show');
+}
+
+// ── バッジ更新 ────────────────────────────────────────────────────────
+async function updateBadges() {
+  try {
+    const [inbox, tasks, trash] = await Promise.all([
+      api('GET', '/api/tasks?status=inbox'),
+      api('GET', '/api/tasks?status=todo'),
+      api('GET', '/api/tasks?status=done,trashed'),
+    ]);
+    document.getElementById('badge-inbox').textContent = inbox.tasks.length;
+    document.getElementById('badge-tasks').textContent = tasks.tasks.length;
+    document.getElementById('badge-trash').textContent = trash.tasks.length;
+  } catch {}
+}
+
+// ── ユーティリティ ────────────────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── 初期化 ────────────────────────────────────────────────────────────
+loadInbox();
+updateBadges();
+</script>
+</body>
+</html>
