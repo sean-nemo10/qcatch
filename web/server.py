@@ -155,7 +155,7 @@ def update_task(task_id: str, body: TaskPatch):
     return task.model_dump()
 
 
-@app.patch("/api/tasks/bulk/complete")
+@app.post("/api/tasks/bulk-complete")
 def bulk_complete(ids: list[str]):
     """複数タスクを一括完了。"""
     now = datetime.now()

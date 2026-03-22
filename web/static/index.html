@@ -114,7 +114,6 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <div class="tabbar">
   <div class="tab active" onclick="switchTab('inbox')">Inbox <span id="badge-inbox" class="badge">0</span></div>
   <div class="tab" onclick="switchTab('tasks')">タスク <span id="badge-tasks" class="badge">0</span></div>
-  <div class="tab" onclick="switchTab('trash')">ゴミ箱 <span id="badge-trash" class="badge">0</span></div>
   <div class="tab" onclick="switchTab('checklists')">チェックリスト</div>
   <div class="tab" onclick="switchTab('recurring')">定期タスク</div>
   <div class="tab" onclick="switchTab('settings')">設定</div>
@@ -143,19 +142,19 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <button class="btn btn-ghost btn-sm" onclick="selectAll('tasks')">全選択</button>
     <button class="btn btn-ghost btn-sm" onclick="clearSelection('tasks')">選択解除</button>
     <span id="selected-count" style="font-size:12px;color:#888"></span>
-  </div>
-  <div id="tasks-list"></div>
-</div>
-
-<!-- ── ゴミ箱 ── -->
-<div id="pane-trash" class="pane content">
-  <div class="toolbar">
-    <span style="font-size:13px;color:#888">完了済み・削除済みのタスク</span>
     <div class="toolbar-right">
-      <button class="btn btn-ghost btn-sm" onclick="loadTrash()">更新</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTrash()" id="trash-toggle-btn">🗑 ゴミ箱</button>
     </div>
   </div>
-  <div id="trash-list" class="task-list"></div>
+  <div id="tasks-list"></div>
+  <!-- ゴミ箱（折りたたみ） -->
+  <div id="trash-section" style="display:none;margin-top:20px">
+    <div style="border-top:1px solid #0f3460;padding-top:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:#888">🗑 ゴミ箱（完了・削除済み）</span>
+      <button class="btn btn-ghost btn-sm" onclick="loadTrash()">更新</button>
+    </div>
+    <div id="trash-list" class="task-list"></div>
+  </div>
 </div>
 
 <!-- ── チェックリスト ── -->
@@ -282,10 +281,17 @@ function switchTab(name) {
   event.currentTarget.classList.add('active');
   if (name === 'inbox') loadInbox();
   else if (name === 'tasks') loadTasks();
-  else if (name === 'trash') loadTrash();
   else if (name === 'checklists') loadChecklists();
   else if (name === 'recurring') loadRecurring();
   else if (name === 'settings') loadSettings();
+}
+
+let trashVisible = false;
+function toggleTrash() {
+  trashVisible = !trashVisible;
+  document.getElementById('trash-section').style.display = trashVisible ? '' : 'none';
+  document.getElementById('trash-toggle-btn').style.color = trashVisible ? '#4fc3f7' : '';
+  if (trashVisible) loadTrash();
 }
 
 // ── ステータス表示 ────────────────────────────────────────────────────
@@ -439,7 +445,7 @@ function clearSelection() {
 async function bulkComplete() {
   if (!selectedTaskIds.size) { showStatus('タスクを選択してください', 'info', 2000); return; }
   try {
-    const res = await api('PATCH', '/api/tasks/bulk/complete', [...selectedTaskIds]);
+    const res = await api('POST', '/api/tasks/bulk-complete', [...selectedTaskIds]);
     selectedTaskIds.clear();
     showStatus(`✓ ${res.updated.length} 件を完了しました`, 'success');
     loadTasks();
@@ -725,14 +731,12 @@ function closeModal() {
 // ── バッジ更新 ────────────────────────────────────────────────────────
 async function updateBadges() {
   try {
-    const [inbox, tasks, trash] = await Promise.all([
+    const [inbox, tasks] = await Promise.all([
       api('GET', '/api/tasks?status=inbox'),
       api('GET', '/api/tasks?status=todo'),
-      api('GET', '/api/tasks?status=done,trashed'),
     ]);
     document.getElementById('badge-inbox').textContent = inbox.tasks.length;
     document.getElementById('badge-tasks').textContent = tasks.tasks.length;
-    document.getElementById('badge-trash').textContent = trash.tasks.length;
   } catch {}
 }
 
