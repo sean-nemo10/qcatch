@@ -44,7 +44,9 @@ def _build_system_prompt(data: AppData) -> str:
         f"- 本日完了: {done_today} 件\n"
         f"- アクティブなチェックリスト: {cl_active} 件\n"
         f"- 定期タスクルール: {rec_count} 件\n\n"
-        "タスクを完了する際は、先に get_tasks でIDを確認してから complete_task を使ってください。"
+        "タスクを完了する際は、先に get_tasks でIDを確認してから complete_task を使ってください。\n"
+        "【重要】タスクIDは内部処理にのみ使用し、ユーザーへの返答には絶対に含めないこと。\n"
+        "優先順位の判断を求められたら、緊急度・重要度・カテゴリを考慮して具体的に提案すること。"
     )
 
 
@@ -136,10 +138,12 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             tasks = [t for t in tasks if t.category == category]
         if not tasks:
             return "該当するタスクはありません。", actions
+        # IDはcomplete_task呼び出し用。ユーザーへの返答には含めないようsystem_promptで指示済み
         lines = [
-            f"- id={t.id[:8]} [{t.category or '未分類'}] {t.text}" for t in tasks[:30]
+            f"- [id:{t.id[:8]}] [{t.category or '未分類'}] {t.text}" for t in tasks[:30]
         ]
-        return f"{len(tasks)} 件:\n" + "\n".join(lines), actions
+        note = "※IDは内部処理専用。ユーザーへの返答にはタスク名のみ使うこと。"
+        return f"{note}\n{len(tasks)} 件:\n" + "\n".join(lines), actions
 
     elif name == "add_task":
         text = args.get("text", "").strip()
