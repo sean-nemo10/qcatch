@@ -27,7 +27,13 @@ from core.models import (
     Task,
 )
 from core import storage
-from core.storage import load_data, save_data, save_data_bg, siphon_inbox
+from core.storage import (
+    load_data,
+    promote_longterm_tasks,
+    save_data,
+    save_data_bg,
+    siphon_inbox,
+)
 
 # パス解決
 if getattr(sys, "frozen", False):
@@ -84,9 +90,12 @@ _app_data: AppData = AppData()
 def startup():
     global _app_data
     _app_data, stats = storage.initialize()
+    promoted = promote_longterm_tasks(_app_data)
+    if promoted:
+        save_data(_app_data)
     print(
         f"[qcatch] 起動完了 — 移行:{stats['migrated']} 吸い上げ:{stats['siphoned']} "
-        f"定期:{stats['recurring']} アーカイブ:{stats['archived']}"
+        f"定期:{stats['recurring']} アーカイブ:{stats['archived']} 長期昇格:{promoted}"
     )
 
 
@@ -282,6 +291,21 @@ def set_dashboard_order(body: DashboardOrderIn):
     return {"ok": True}
 
 
+@app.get("/api/tasks-order")
+def get_tasks_order():
+    """タスクタブの手動並び順を返す。"""
+    return {"order": _app_data.tasks_order}
+
+
+@app.post("/api/tasks-order")
+def set_tasks_order(body: DashboardOrderIn):
+    """タスクタブの手動並び順を保存する。"""
+    valid_ids = {t.id for t in _app_data.tasks}
+    _app_data.tasks_order = [i for i in body.order if i in valid_ids]
+    save_data_bg(_app_data)
+    return {"ok": True}
+
+
 @app.delete("/api/tasks/{task_id}", status_code=204)
 def delete_task(task_id: str):
     """タスクを完全削除（ゴミ箱からの完全削除用）。"""
@@ -342,6 +366,8 @@ def sort_tasks():
             s = id_to_sorted[task.id]
             task.status = s.status
             task.category = s.category
+            if s.due_date and not task.due_date:  # AIが検出した場合のみ上書き
+                task.due_date = s.due_date
 
     ai.update_few_shot(_app_data)
     save_data_bg(_app_data)

@@ -9,6 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
+from datetime import date, datetime
 from core.models import AppData, Category, Task
 
 CATEGORIES: list[Category] = ["仕事", "プライベート", "買い物", "学習", "その他"]
@@ -61,14 +62,18 @@ def update_few_shot(data: AppData) -> int:
 
 def _build_sort_prompt(tasks_text: str) -> str:
     cats = "・".join(CATEGORIES)
+    today = date.today().isoformat()
     return (
+        f"今日の日付: {today}\n\n"
         f"{_get_few_shot_text()}"
         f"以下のタスクリストを「{cats}」のいずれかに分類してください。\n"
-        f"タイムスタンプは [YYYY-MM-DD HH:MM] の形式をそのまま保持してください。\n"
+        f"タスクのテキストに「明日」「来週月曜」「月末」「3月31日」など日時を表す表現が含まれる場合は、"
+        f"今日の日付を基準に ISO 8601 形式（YYYY-MM-DD）の due_date を設定してください。\n"
+        f"日時の表現がない場合は due_date を null にしてください。\n"
         f"空のカテゴリは省略してください。\n\n"
         f"タスクリスト:\n{tasks_text}\n\n"
         f"以下の JSON 形式のみで返してください（説明文不要）:\n"
-        f'{{"tasks": [{{"text": "タスク本文", "category": "カテゴリ"}}]}}'
+        f'{{"tasks": [{{"text": "タスク本文", "category": "カテゴリ", "due_date": "YYYY-MM-DD or null"}}]}}'
     )
 
 
@@ -91,18 +96,22 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
     # 構造化出力を試みる
     try:
         from pydantic import BaseModel
-        from typing import Literal
+        from typing import Literal, Optional as Opt
 
         class _Item(BaseModel):
             text: str
             category: Literal["仕事", "プライベート", "買い物", "学習", "その他"]
+            due_date: Opt[str] = None  # YYYY-MM-DD or null
 
         class _Result(BaseModel):
             tasks: list[_Item]
 
+        today = date.today().isoformat()
         prompt = (
-            _get_few_shot_text()
-            + f"以下のタスクを {CATEGORIES} のいずれかに分類してください。\n\n{tasks_text}"
+            f"今日の日付: {today}\n\n"
+            + _get_few_shot_text()
+            + f"以下のタスクを {CATEGORIES} のいずれかに分類し、テキスト中の日時表現（「明日」「来週」「月末」等）を"
+            f"今日の日付を基準に ISO 8601 形式の due_date として設定してください。日時がなければ null。\n\n{tasks_text}"
         )
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -114,9 +123,9 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
             ),
         )
         result = _Result.model_validate_json(response.text)
-        return _apply_categories(
-            tasks, {item.text: item.category for item in result.tasks}
-        )
+        cat_map = {item.text: item.category for item in result.tasks}
+        due_map = {item.text: item.due_date for item in result.tasks if item.due_date}
+        return _apply_categories(tasks, cat_map, due_map)
     except Exception:
         pass
 
@@ -331,8 +340,7 @@ def suggest_tags(data: AppData, api_key: str) -> list[dict]:
 
 
 def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
-    """JSON レスポンスをパースしてカテゴリを適用する。"""
-    # コードブロック除去
+    """JSON レスポンスをパースしてカテゴリ・due_date を適用する。"""
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -346,13 +354,32 @@ def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
             for item in items
             if "text" in item and "category" in item
         }
-        return _apply_categories(tasks, cat_map)
+        due_map = {
+            item["text"]: item["due_date"]
+            for item in items
+            if "text" in item and item.get("due_date")
+        }
+        return _apply_categories(tasks, cat_map, due_map)
     except Exception:
         return tasks
 
 
-def _apply_categories(tasks: list[Task], cat_map: dict[str, str]) -> list[Task]:
-    """テキストをキーにカテゴリを適用する（部分一致フォールバックあり）。"""
+def _apply_categories(
+    tasks: list[Task],
+    cat_map: dict[str, str],
+    due_map: dict[str, str] | None = None,
+) -> list[Task]:
+    """テキストをキーにカテゴリ・due_date を適用する（部分一致フォールバックあり）。"""
+    due_map = due_map or {}
+
+    def _set_due(task: Task, key: str) -> None:
+        due_str = due_map.get(key)
+        if due_str:
+            try:
+                task.due_date = datetime.strptime(due_str, "%Y-%m-%d")
+            except ValueError:
+                pass
+
     for task in tasks:
         # 完全一致
         if task.text in cat_map:
@@ -360,6 +387,7 @@ def _apply_categories(tasks: list[Task], cat_map: dict[str, str]) -> list[Task]:
             if cat in CATEGORIES:
                 task.category = cat
                 task.status = "todo"
+                _set_due(task, task.text)
             continue
         # 部分一致（Gemini がテキストを短縮する場合の対策）
         for key, cat in cat_map.items():
@@ -367,6 +395,7 @@ def _apply_categories(tasks: list[Task], cat_map: dict[str, str]) -> list[Task]:
                 if cat in CATEGORIES:
                     task.category = cat
                     task.status = "todo"
+                    _set_due(task, key)
                 break
         else:
             task.category = "その他"

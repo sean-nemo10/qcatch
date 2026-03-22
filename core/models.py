@@ -56,3 +56,4 @@ class AppData(BaseModel):
     checklists: list[ChecklistTemplate] = Field(default_factory=list)
     recurring: list[RecurringRule] = Field(default_factory=list)
     dashboard_order: list[str] = Field(default_factory=list)  # タスクIDの手動並び順
+    tasks_order: list[str] = Field(default_factory=list)  # タスクタブの手動並び順

@@ -113,6 +113,20 @@ def siphon_inbox(data: AppData) -> int:
     return added
 
 
+# ── 長期タスク自動昇格 ───────────────────────────────────────────────────────
+
+
+def promote_longterm_tasks(data: AppData, days_threshold: int = 7) -> int:
+    """due_date が days_threshold 日以内の longterm タスクを todo に昇格する。"""
+    threshold = datetime.now() + timedelta(days=days_threshold)
+    promoted = 0
+    for task in data.tasks:
+        if task.status == "longterm" and task.due_date and task.due_date <= threshold:
+            task.status = "todo"
+            promoted += 1
+    return promoted
+
+
 # ── 既存データ移行（初回のみ） ────────────────────────────────────────────────
 
 
