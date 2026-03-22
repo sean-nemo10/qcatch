@@ -378,6 +378,37 @@ def apply_tags(body: ApplyTagsIn):
     return {"applied": applied}
 
 
+# ── /api/chat ─────────────────────────────────────────────────────────────────
+
+
+class ChatIn(BaseModel):
+    message: str
+    api_key: Optional[str] = None  # 設定画面から渡す（env変数の代替）
+
+
+@app.post("/api/chat")
+def chat_endpoint(body: ChatIn):
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            400, "GEMINI_API_KEY が設定されていません。設定タブで入力してください。"
+        )
+    try:
+        text, actions = chat_mod.chat(body.message, _app_data, api_key)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    return {"message": text, "actions": actions}
+
+
+@app.post("/api/chat/clear", status_code=204)
+def clear_chat():
+    from core import chat as chat_mod
+
+    chat_mod.clear_history()
+
+
 # ── /api/config ───────────────────────────────────────────────────────────────
 
 

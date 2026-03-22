@@ -106,6 +106,21 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .empty{text-align:center;color:#555;padding:40px 20px;font-size:14px}
 /* ── 完了済みチェック ── */
 .done-mark{color:#4caf50;font-size:16px}
+/* ── チャット ── */
+#pane-chat{padding:0;display:flex;flex-direction:column}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.chat-row{display:flex;flex-direction:column;max-width:80%}
+.chat-row.user{align-self:flex-end;align-items:flex-end}
+.chat-row.ai{align-self:flex-start;align-items:flex-start}
+.chat-bubble{padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.chat-row.user .chat-bubble{background:#0f3460;color:#e0e0e0;border-bottom-right-radius:4px}
+.chat-row.ai .chat-bubble{background:#16213e;border:1px solid #0f3460;color:#e0e0e0;border-bottom-left-radius:4px}
+.chat-row.ai.thinking .chat-bubble{color:#666}
+.chat-meta{font-size:11px;color:#555;margin-top:3px;padding:0 4px}
+.chat-input-bar{border-top:1px solid #0f3460;padding:12px 16px;display:flex;gap:8px;flex-shrink:0;background:#1a1a2e}
+.chat-input-bar textarea{flex:1;padding:9px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit;resize:none;height:44px;max-height:120px;overflow-y:auto;line-height:1.5}
+.chat-input-bar textarea:focus{outline:none;border-color:#4fc3f7}
+.chat-actions-bar{display:flex;align-items:center;gap:6px;padding:0 16px 10px;flex-shrink:0}
 /* ── ダッシュボード ── */
 .dash-section{margin-bottom:24px}
 .dash-section-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #0f3460}
@@ -132,6 +147,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <!-- タブバー -->
 <div class="tabbar">
   <div class="tab active" onclick="switchTab('dashboard')">ダッシュボード</div>
+  <div class="tab" onclick="switchTab('chat')">💬 チャット</div>
   <div class="tab" onclick="switchTab('inbox')">Inbox <span id="badge-inbox" class="badge">0</span></div>
   <div class="tab" onclick="switchTab('tasks')">タスク <span id="badge-tasks" class="badge">0</span></div>
   <div class="tab" onclick="switchTab('checklists')">チェックリスト</div>
@@ -141,6 +157,26 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
 <!-- ステータスバー -->
 <div id="status-bar" class="status-bar"></div>
+
+<!-- ── チャット ── -->
+<div id="pane-chat" class="pane content">
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-row ai">
+      <div class="chat-bubble">こんにちは！タスク管理をお手伝いします。<br>「今週のタスクを見せて」「牛乳を買うを追加して」などと話しかけてください。</div>
+    </div>
+  </div>
+  <div class="chat-actions-bar">
+    <span style="font-size:11px;color:#555">Gemini API キー:</span>
+    <input id="chat-api-key" type="password" placeholder="AIzaSy… （設定タブで保存可）"
+      style="flex:1;padding:5px 10px;background:#16213e;border:1px solid #0f3460;border-radius:6px;color:#e0e0e0;font-size:12px;font-family:inherit">
+    <button class="btn btn-ghost btn-sm" onclick="clearChat()">履歴クリア</button>
+  </div>
+  <div class="chat-input-bar">
+    <textarea id="chat-input" placeholder="メッセージを入力… (Enter で送信 / Shift+Enter で改行)"
+      onkeydown="handleChatKey(event)" oninput="autoResizeChat(this)"></textarea>
+    <button class="btn btn-primary" onclick="sendChat()" style="height:44px;padding:0 18px">送信</button>
+  </div>
+</div>
 
 <!-- ── ダッシュボード ── -->
 <div id="pane-dashboard" class="pane active content">
@@ -272,6 +308,16 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   </div>
 
   <div class="form-card">
+    <h3>Gemini API キー</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:10px">環境変数 GEMINI_API_KEY が未設定の場合はここに入力してください。ブラウザのローカルストレージに保存されます。</p>
+    <div style="display:flex;gap:8px">
+      <input id="settings-api-key" type="password" class="form-input" style="margin:0;flex:1" placeholder="AIzaSy…">
+      <button class="btn btn-primary" onclick="saveApiKey()">保存</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearApiKey()">削除</button>
+    </div>
+  </div>
+
+  <div class="form-card">
     <h3>タグ変更提案（AI）</h3>
     <p style="font-size:13px;color:#888;margin-bottom:12px">
       既存のタスクのカテゴリを AI が見直し、変更案を提示します。承認したもののみ反映されます。
@@ -326,7 +372,8 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('pane-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
-  if (name === 'dashboard') loadDashboard();
+  if (name === 'chat') { loadApiKeyToChat(); }
+  else if (name === 'dashboard') loadDashboard();
   else if (name === 'inbox') loadInbox();
   else if (name === 'tasks') loadTasks();
   else if (name === 'checklists') loadChecklists();
@@ -361,6 +408,100 @@ async function api(method, path, body) {
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────
+function getApiKey() {
+  return document.getElementById('chat-api-key')?.value.trim()
+    || localStorage.getItem('qcatch_api_key') || '';
+}
+function loadApiKeyToChat() {
+  const saved = localStorage.getItem('qcatch_api_key') || '';
+  const el = document.getElementById('chat-api-key');
+  if (el && saved) el.value = saved;
+}
+function saveApiKey() {
+  const val = document.getElementById('settings-api-key').value.trim();
+  if (!val) return;
+  localStorage.setItem('qcatch_api_key', val);
+  showStatus('API キーを保存しました', 'success', 2000);
+  loadApiKeyToChat();
+}
+function clearApiKey() {
+  localStorage.removeItem('qcatch_api_key');
+  document.getElementById('settings-api-key').value = '';
+  const chatKey = document.getElementById('chat-api-key');
+  if (chatKey) chatKey.value = '';
+  showStatus('API キーを削除しました', 'info', 2000);
+}
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+function autoResizeChat(el) {
+  el.style.height = '44px';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function appendChatMsg(role, text) {
+  const container = document.getElementById('chat-messages');
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const row = document.createElement('div');
+  row.className = `chat-row ${role}`;
+  row.innerHTML = `<div class="chat-bubble">${esc(text).replace(/\n/g,'<br>')}</div>
+    <div class="chat-meta">${time}</div>`;
+  container.appendChild(row);
+  container.scrollTop = container.scrollHeight;
+  return row;
+}
+
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  const row = document.createElement('div');
+  row.className = 'chat-row ai thinking';
+  row.id = 'chat-typing';
+  row.innerHTML = '<div class="chat-bubble">…</div>';
+  container.appendChild(row);
+  container.scrollTop = container.scrollHeight;
+}
+function hideTyping() {
+  const el = document.getElementById('chat-typing');
+  if (el) el.remove();
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  const apiKey = getApiKey();
+
+  appendChatMsg('user', text);
+  inp.value = '';
+  inp.style.height = '44px';
+  showTyping();
+
+  try {
+    const res = await api('POST', '/api/chat', { message: text, api_key: apiKey || null });
+    hideTyping();
+    appendChatMsg('ai', res.message);
+    // UIアクションを処理
+    for (const action of res.actions || []) {
+      if (action.type === 'refresh') { updateBadges(); }
+      else if (action.type === 'switch_tab') { switchTabByName(action.tab); }
+    }
+  } catch(e) {
+    hideTyping();
+    appendChatMsg('ai', 'エラー: ' + e.message);
+  }
+}
+
+async function clearChat() {
+  try {
+    await api('POST', '/api/chat/clear');
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = '<div class="chat-row ai"><div class="chat-bubble">会話履歴をクリアしました。</div></div>';
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────
@@ -954,6 +1095,8 @@ async function loadSettings() {
   document.getElementById('cfg-backend').value = cfg.sort_backend || 'auto';
   document.getElementById('cfg-ollama-model').value = cfg.ollama_model || '';
   document.getElementById('cfg-ollama-host').value = cfg.ollama_host || '';
+  const saved = localStorage.getItem('qcatch_api_key') || '';
+  document.getElementById('settings-api-key').value = saved;
 }
 
 async function saveConfig() {
