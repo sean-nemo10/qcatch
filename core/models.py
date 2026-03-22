@@ -8,7 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-TaskStatus = Literal["inbox", "todo", "done", "trashed"]
+TaskStatus = Literal["inbox", "todo", "done", "trashed", "longterm"]
 Category = Literal["仕事", "プライベート", "買い物", "学習", "その他"]
 
 
@@ -24,6 +24,7 @@ class Task(BaseModel):
     tags: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
+    due_date: Optional[datetime] = None
 
 
 class ChecklistItem(BaseModel):
@@ -52,3 +53,4 @@ class AppData(BaseModel):
     tasks: list[Task] = Field(default_factory=list)
     checklists: list[ChecklistTemplate] = Field(default_factory=list)
     recurring: list[RecurringRule] = Field(default_factory=list)
+    dashboard_order: list[str] = Field(default_factory=list)  # タスクIDの手動並び順

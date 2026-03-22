@@ -95,6 +95,7 @@ def startup():
 class TaskIn(BaseModel):
     text: str
     category: Optional[Category] = None
+    due_date: Optional[datetime] = None
 
 
 class TaskPatch(BaseModel):
@@ -102,6 +103,7 @@ class TaskPatch(BaseModel):
     category: Optional[Category] = None
     tags: Optional[list[str]] = None
     text: Optional[str] = None
+    due_date: Optional[datetime] = None
 
 
 class ChecklistIn(BaseModel):
@@ -182,7 +184,7 @@ def get_tasks(status: Optional[str] = None):
 @app.post("/api/tasks", status_code=201)
 def add_task(body: TaskIn):
     """タスクを inbox として追加。"""
-    task = Task(text=body.text, category=body.category)
+    task = Task(text=body.text, category=body.category, due_date=body.due_date)
     _app_data.tasks.append(task)
     save_data_bg(_app_data)
     return task.model_dump()
@@ -193,12 +195,12 @@ def update_task(task_id: str, body: TaskPatch):
     """タスクのステータス・カテゴリを変更。"""
     task = _find_task(task_id)
     if body.status:
-        if body.status not in ("inbox", "todo", "done", "trashed"):
+        if body.status not in ("inbox", "todo", "done", "trashed", "longterm"):
             raise HTTPException(400, "invalid status")
         task.status = body.status
         if body.status == "done":
             task.completed_at = datetime.now()
-        elif body.status in ("inbox", "todo", "trashed"):
+        elif body.status in ("inbox", "todo", "trashed", "longterm"):
             task.completed_at = None
     if "category" in body.model_fields_set:
         task.category = body.category
@@ -206,6 +208,8 @@ def update_task(task_id: str, body: TaskPatch):
         task.tags = body.tags
     if body.text is not None and body.text.strip():
         task.text = body.text.strip()
+    if "due_date" in body.model_fields_set:
+        task.due_date = body.due_date
     save_data_bg(_app_data)
     return task.model_dump()
 
@@ -225,6 +229,52 @@ def bulk_complete(ids: list[str]):
             pass
     save_data_bg(_app_data)
     return {"updated": updated}
+
+
+class BulkTaskItem(BaseModel):
+    text: str
+    category: Optional[Category] = None
+    due_date: Optional[datetime] = None
+
+
+@app.post("/api/tasks/bulk", status_code=201)
+def bulk_add_tasks(items: list[BulkTaskItem]):
+    """複数タスクを一括追加。category が設定されていれば todo、なければ inbox。"""
+    added = 0
+    for item in items:
+        if not item.text.strip():
+            continue
+        task = Task(
+            text=item.text.strip(),
+            category=item.category,
+            due_date=item.due_date,
+            status="todo" if item.category else "inbox",
+        )
+        _app_data.tasks.append(task)
+        added += 1
+    if added:
+        save_data_bg(_app_data)
+    return {"added": added}
+
+
+@app.get("/api/dashboard-order")
+def get_dashboard_order():
+    """ダッシュボードの手動並び順を返す。"""
+    return {"order": _app_data.dashboard_order}
+
+
+class DashboardOrderIn(BaseModel):
+    order: list[str]
+
+
+@app.post("/api/dashboard-order")
+def set_dashboard_order(body: DashboardOrderIn):
+    """ダッシュボードの手動並び順を保存する。"""
+    # 存在するタスクIDのみ保持
+    valid_ids = {t.id for t in _app_data.tasks}
+    _app_data.dashboard_order = [i for i in body.order if i in valid_ids]
+    save_data_bg(_app_data)
+    return {"ok": True}
 
 
 @app.delete("/api/tasks/{task_id}", status_code=204)

@@ -56,9 +56,15 @@ _load_history()
 # ── システムプロンプト ────────────────────────────────────────────────────────
 
 
+_WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
+
+
 def _build_system_prompt(data: AppData) -> str:
+    today = date.today()
+    today_str = f"{today.year}年{today.month}月{today.day}日（{_WEEKDAY_JA[today.weekday()]}曜日）"
     todo_count = sum(1 for t in data.tasks if t.status == "todo")
     inbox_count = sum(1 for t in data.tasks if t.status == "inbox")
+    longterm_count = sum(1 for t in data.tasks if t.status == "longterm")
     done_today = sum(
         1
         for t in data.tasks
@@ -70,6 +76,7 @@ def _build_system_prompt(data: AppData) -> str:
     rec_count = len(data.recurring)
 
     return (
+        f"今日の日付: {today_str}\n\n"
         "あなたはタスク管理の思考パートナーです。日本語で返答してください。\n\n"
         "【返答の原則】\n"
         "- タスクの一覧をそのまま箇条書きで返すのは禁止。ダッシュボードと同じ情報を出すだけでは価値がない。\n"
@@ -77,10 +84,12 @@ def _build_system_prompt(data: AppData) -> str:
         "- 「なぜそれが重要か」「次に何をすべきか」を必ず含めること。\n"
         "- タスクIDは内部処理にのみ使用し、ユーザーへの返答には絶対に含めないこと。\n"
         "- タスクを完了する際は先に get_tasks でIDを確認してから complete_task を使うこと。\n"
-        "- 状況を把握したい場合は get_analysis を使うと滞留・傾向・優先度の分析データが得られる。\n\n"
+        "- 状況を把握したい場合は get_analysis を使うと滞留・傾向・優先度の分析データが得られる。\n"
+        "- get_tasks で status=done は絶対に指定しないこと。完了タスクは原則として参照しない。\n\n"
         "【現在の概況】\n"
         f"- Inbox（未分類）: {inbox_count} 件\n"
         f"- Todo（分類済み）: {todo_count} 件\n"
+        f"- 長期タスク（カウント対象外）: {longterm_count} 件\n"
         f"- 本日完了: {done_today} 件\n"
         f"- アクティブなチェックリスト: {cl_active} 件\n"
         f"- 定期タスクルール: {rec_count} 件"
@@ -97,13 +106,13 @@ def _build_tools():
         function_declarations=[
             types.FunctionDeclaration(
                 name="get_tasks",
-                description="タスク一覧を取得する",
+                description="タスク一覧を取得する。完了タスク（done）は取得不可。",
                 parameters=types.Schema(
                     type=types.Type.OBJECT,
                     properties={
                         "status": types.Schema(
                             type=types.Type.STRING,
-                            description="todo / inbox / done / all",
+                            description="todo（デフォルト）/ inbox / longterm / all（todo+inbox+longtermの合計）",
                         ),
                         "category": types.Schema(
                             type=types.Type.STRING,
@@ -114,7 +123,7 @@ def _build_tools():
             ),
             types.FunctionDeclaration(
                 name="add_task",
-                description="新しいタスクを追加する",
+                description="新しいタスクを追加する。「明日」「来週金曜」などの相対表現は今日の日付を基準にISO 8601形式に変換してdue_dateに設定する。",
                 parameters=types.Schema(
                     type=types.Type.OBJECT,
                     properties={
@@ -124,6 +133,10 @@ def _build_tools():
                         "category": types.Schema(
                             type=types.Type.STRING,
                             description="カテゴリ（任意）: 仕事 / プライベート / 買い物 / 学習 / その他",
+                        ),
+                        "due_date": types.Schema(
+                            type=types.Type.STRING,
+                            description="期日（ISO 8601形式: YYYY-MM-DDTHH:MM:SS）。「明日」「来週」等は今日の日付を基準に計算して設定する。任意。",
                         ),
                     },
                     required=["text"],
@@ -174,7 +187,16 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
         status = args.get("status", "todo")
         category = args.get("category")
         tasks = data.tasks
-        if status and status != "all":
+        if status == "all":
+            # 完了・削除済みは含めない
+            tasks = [t for t in tasks if t.status not in ("done", "trashed")]
+        elif status in ("done", "trashed"):
+            # 完了・削除済みは参照禁止
+            return (
+                "完了タスクは原則として参照しません。todo / inbox / longterm を指定してください。",
+                actions,
+            )
+        else:
             tasks = [t for t in tasks if t.status == status]
         if category:
             tasks = [t for t in tasks if t.category == category]
@@ -182,7 +204,9 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             return "該当するタスクはありません。", actions
         # IDはcomplete_task呼び出し用。ユーザーへの返答には含めないようsystem_promptで指示済み
         lines = [
-            f"- [id:{t.id[:8]}] [{t.category or '未分類'}] {t.text}" for t in tasks[:30]
+            f"- [id:{t.id[:8]}] [{t.category or '未分類'}] {t.text}"
+            + (f" [期日:{t.due_date.strftime('%Y/%m/%d')}]" if t.due_date else "")
+            for t in tasks[:30]
         ]
         note = "※IDは内部処理専用。ユーザーへの返答にはタスク名のみ使うこと。"
         return f"{note}\n{len(tasks)} 件:\n" + "\n".join(lines), actions
@@ -194,15 +218,24 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
         category = args.get("category")
         if category not in CATEGORIES:
             category = None
+        due_date = None
+        due_date_str = args.get("due_date", "")
+        if due_date_str:
+            try:
+                due_date = datetime.fromisoformat(due_date_str)
+            except (ValueError, TypeError):
+                pass
         task = Task(
             text=text,
             status="todo" if category else "inbox",
             category=category,
+            due_date=due_date,
         )
         data.tasks.append(task)
         storage.save_data(data)
         actions.append({"type": "refresh"})
-        return f"「{text}」を追加しました。", actions
+        due_str = f"（期日: {due_date.strftime('%Y/%m/%d')}）" if due_date else ""
+        return f"「{text}」を追加しました{due_str}。", actions
 
     elif name == "complete_task":
         task_ids = args.get("task_ids", [])
