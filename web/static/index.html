@@ -279,6 +279,19 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   </div>
 </div>
 
+<!-- 期日編集モーダル -->
+<div id="modal-due" class="modal-overlay">
+  <div class="modal" style="max-width:360px">
+    <h2>期日を設定</h2>
+    <input id="modal-due-input" type="datetime-local" class="form-input" style="margin:16px 0">
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDueModal()">キャンセル</button>
+      <button class="btn btn-danger btn-sm" onclick="saveDue(true)">クリア</button>
+      <button class="btn btn-primary" onclick="saveDue(false)">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- タグ提案モーダル -->
 <div id="modal-tags" class="modal-overlay">
   <div class="modal">
@@ -783,15 +796,28 @@ async function createChecklist() {
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
-async function editClDue(clId, currentDue) {
-  const current = currentDue ? new Date(currentDue).toISOString().slice(0,16) : '';
-  const val = prompt('期日を入力（空欄でクリア）\n形式: YYYY-MM-DDTHH:MM', current);
-  if (val === null) return; // キャンセル
-  const due_date = val.trim() ? new Date(val.trim()).toISOString() : null;
+let _dueClId = null;
+function editClDue(clId, currentDue) {
+  _dueClId = clId;
+  const inp = document.getElementById('modal-due-input');
+  inp.value = currentDue ? new Date(currentDue).toISOString().slice(0,16) : '';
+  document.getElementById('modal-due').classList.add('show');
+  setTimeout(() => inp.focus(), 50);
+}
+function closeDueModal() {
+  document.getElementById('modal-due').classList.remove('show');
+  _dueClId = null;
+}
+async function saveDue(clear) {
+  if (!_dueClId) return;
+  const val = document.getElementById('modal-due-input').value;
+  const due_date = clear || !val ? null : new Date(val).toISOString();
   try {
-    await api('PATCH', `/api/checklists/${clId}`, {due_date});
-    showStatus('期日を更新しました', 'success', 2000);
+    await api('PATCH', `/api/checklists/${_dueClId}`, {due_date});
+    showStatus(clear ? '期日をクリアしました' : '期日を保存しました', 'success', 2000);
+    closeDueModal();
     loadChecklists();
+    if (document.getElementById('pane-dashboard').classList.contains('active')) loadDashboard();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
