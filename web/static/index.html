@@ -102,6 +102,8 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .suggestion-text{flex:1;font-size:13px}
 .suggestion-arrow{color:#4fc3f7;font-size:16px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+/* ── サブタグチップ ── */
+.task-subtag{font-size:10px;padding:2px 7px;border-radius:8px;background:#1a3050;color:#4fc3f7;border:1px solid #0f3460;white-space:nowrap;margin-left:4px}
 /* ── 空状態 ── */
 .empty{text-align:center;color:#555;padding:40px 20px;font-size:14px}
 /* ── 完了済みチェック ── */
@@ -202,6 +204,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <button class="btn btn-ghost btn-sm" onclick="clearSelection('tasks')">選択解除</button>
     <span id="selected-count" style="font-size:12px;color:#888"></span>
     <div class="toolbar-right">
+      <button class="btn btn-warning btn-sm" onclick="suggestSplits()">✨ スプリット提案</button>
       <button class="btn btn-ghost btn-sm" onclick="toggleTrash()" id="trash-toggle-btn">🗑 ゴミ箱</button>
     </div>
   </div>
@@ -349,6 +352,19 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
       <button class="btn btn-primary" onclick="applyTags()">選択を適用</button>
+    </div>
+  </div>
+</div>
+
+<!-- スプリット提案モーダル -->
+<div id="modal-splits" class="modal-overlay">
+  <div class="modal">
+    <h2>✨ サブタグ分割の提案</h2>
+    <p style="font-size:13px;color:#888;margin-bottom:16px">チェックしたタスクにサブタグを付けます。同じサブタグのタスクはグループ化されて見やすくなります。</p>
+    <div id="splits-list"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSplitsModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="applySplits()">選択を適用</button>
     </div>
   </div>
 </div>
@@ -657,7 +673,7 @@ function fmtDate(iso) {
 
 function switchTabByName(name) {
   const tabs = document.querySelectorAll('.tab');
-  const names = ['dashboard','inbox','tasks','checklists','recurring','settings'];
+  const names = ['dashboard','chat','inbox','tasks','checklists','recurring','settings'];
   tabs.forEach((tab, i) => {
     if (names[i] === name) {
       tab.dispatchEvent(new MouseEvent('click', {bubbles:true}));
@@ -749,6 +765,30 @@ async function loadTasks() {
   const container = document.getElementById('tasks-list');
   if (!tasks.length) { container.innerHTML = '<div class="empty">タスクがありません</div>'; return; }
 
+  // サブタグでさらにグループ化
+  function renderCatGroup(cat, tasks) {
+    const subgroups = {};
+    tasks.forEach(t => {
+      const key = (t.tags && t.tags[0]) ? t.tags[0] : '';
+      if (!subgroups[key]) subgroups[key] = [];
+      subgroups[key].push(t);
+    });
+    const keys = Object.keys(subgroups).sort((a,b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b));
+    return keys.map(key => {
+      const subTasks = subgroups[key];
+      const header = key ? `<div style="font-size:11px;color:#4fc3f7;padding:4px 2px 2px;margin-top:6px">› ${esc(key)}</div>` : '';
+      return header + subTasks.map(t => `
+        <div class="task-item ${selectedTaskIds.has(t.id)?'selected':''}" id="ti-${t.id}" onclick="toggleSelect('${t.id}', event)">
+          <input type="checkbox" ${selectedTaskIds.has(t.id)?'checked':''} onclick="toggleSelect('${t.id}', event)">
+          <div class="task-text">${esc(t.text)}${t.tags&&t.tags[0]?`<span class="task-subtag">${esc(t.tags[0])}</span>`:''}</div>
+          <div class="task-actions" onclick="e=>e.stopPropagation()">
+            <button class="btn btn-success btn-sm" onclick="completeOne('${t.id}');event.stopPropagation()">完了</button>
+            <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}');event.stopPropagation()">削除</button>
+          </div>
+        </div>`).join('');
+    }).join('');
+  }
+
   container.innerHTML = ORDER.filter(c => groups[c]).map(cat => `
     <div class="cat-section">
       <div class="cat-header">
@@ -756,15 +796,7 @@ async function loadTasks() {
         <span class="cat-count">${groups[cat].length}</span>
       </div>
       <div class="task-list">
-        ${groups[cat].map(t => `
-          <div class="task-item ${selectedTaskIds.has(t.id)?'selected':''}" id="ti-${t.id}" onclick="toggleSelect('${t.id}', event)">
-            <input type="checkbox" ${selectedTaskIds.has(t.id)?'checked':''} onclick="toggleSelect('${t.id}', event)">
-            <div class="task-text">${esc(t.text)}</div>
-            <div class="task-actions" onclick="e=>e.stopPropagation()">
-              <button class="btn btn-success btn-sm" onclick="completeOne('${t.id}');event.stopPropagation()">完了</button>
-              <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}');event.stopPropagation()">削除</button>
-            </div>
-          </div>`).join('')}
+        ${renderCatGroup(cat, groups[cat])}
       </div>
     </div>`).join('');
 
@@ -842,7 +874,7 @@ async function moveToTrash(id) {
 async function loadTrash() {
   const data = await api('GET', '/api/tasks?status=done,trashed');
   const tasks = data.tasks;
-  document.getElementById('badge-trash').textContent = tasks.length;
+  // (badge-trash removed — trash is a collapsible section)
   const list = document.getElementById('trash-list');
   if (!tasks.length) { list.innerHTML = '<div class="empty">ゴミ箱は空です</div>'; return; }
   list.innerHTML = tasks.map(t => `
@@ -1114,7 +1146,7 @@ async function saveConfig() {
 async function suggestTags() {
   showStatus('AI がタグを分析中…', 'info', 0);
   try {
-    const data = await api('POST', '/api/suggest-tags');
+    const data = await api('POST', '/api/suggest-tags', {api_key: getApiKey() || null});
     document.getElementById('status-bar').classList.remove('show');
     if (!data.suggestions.length) {
       showStatus('変更提案はありません（全て適切なカテゴリです）', 'success'); return;
@@ -1155,6 +1187,63 @@ async function applyTags() {
 
 function closeModal() {
   document.getElementById('modal-tags').classList.remove('show');
+}
+
+// ── Split Suggestion ──────────────────────────────────────────────────
+let pendingSplits = [];
+
+async function suggestSplits() {
+  showStatus('AI がサブタグを分析中…', 'info', 0);
+  try {
+    const data = await api('POST', '/api/suggest-splits', {api_key: getApiKey() || null});
+    document.getElementById('status-bar').classList.remove('show');
+    if (!data.suggestions.length) {
+      showStatus('分割提案はありません（各カテゴリ5件未満 or グループが見当たらない）', 'success'); return;
+    }
+    pendingSplits = data.suggestions;
+    // タグ名ごとにグループ表示
+    const byTag = {};
+    data.suggestions.forEach((s, i) => {
+      if (!byTag[s.suggested_tag]) byTag[s.suggested_tag] = [];
+      byTag[s.suggested_tag].push({...s, _idx: i});
+    });
+    const list = document.getElementById('splits-list');
+    list.innerHTML = Object.entries(byTag).map(([tag, items]) => `
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:#4fc3f7;font-weight:700;margin-bottom:6px">› ${esc(tag)}</div>
+        ${items.map(s => `
+          <div class="suggestion-item">
+            <input type="checkbox" id="spl-${s._idx}" checked>
+            <div class="suggestion-text">
+              <span style="font-size:13px">${esc(s.text)}</span>
+              <span style="font-size:11px;color:#666;margin-left:6px">${esc(s.category)}</span>
+            </div>
+          </div>`).join('')}
+      </div>`).join('');
+    document.getElementById('modal-splits').classList.add('show');
+  } catch(e) {
+    document.getElementById('status-bar').classList.remove('show');
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
+async function applySplits() {
+  const checked = pendingSplits.filter((_, i) =>
+    document.getElementById('spl-' + i)?.checked
+  );
+  if (!checked.length) { closeSplitsModal(); return; }
+  try {
+    const res = await api('POST', '/api/apply-splits', {
+      splits: checked.map(s => ({task_id: s.task_id, suggested_tag: s.suggested_tag}))
+    });
+    closeSplitsModal();
+    showStatus(`✓ ${res.applied} 件にサブタグを付けました`, 'success');
+    loadTasks();
+  } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+function closeSplitsModal() {
+  document.getElementById('modal-splits').classList.remove('show');
 }
 
 // ── バッジ更新 ────────────────────────────────────────────────────────

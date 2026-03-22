@@ -114,6 +114,15 @@ class ApplyTagsIn(BaseModel):
     suggestions: list[TagSuggestion]
 
 
+class SplitItem(BaseModel):
+    task_id: str
+    suggested_tag: str
+
+
+class ApplySplitsIn(BaseModel):
+    splits: list[SplitItem]
+
+
 class ConfigIn(BaseModel):
     sort_backend: Optional[str] = None
     ollama_model: Optional[str] = None
@@ -349,11 +358,15 @@ def delete_recurring(rule_id: str):
 # ── /api/suggest-tags / apply-tags ───────────────────────────────────────────
 
 
+class AiKeyIn(BaseModel):
+    api_key: Optional[str] = None
+
+
 @app.post("/api/suggest-tags")
-def suggest_tags():
+def suggest_tags(body: AiKeyIn = AiKeyIn()):
     from core import ai
 
-    gemini_key = os.environ.get("GEMINI_API_KEY")
+    gemini_key = body.api_key or os.environ.get("GEMINI_API_KEY")
     if not gemini_key:
         raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
     try:
@@ -371,6 +384,38 @@ def apply_tags(body: ApplyTagsIn):
         try:
             task = _find_task(s.id)
             task.category = s.suggested
+            applied += 1
+        except HTTPException:
+            pass
+    save_data(_app_data)
+    return {"applied": applied}
+
+
+# ── /api/suggest-splits / apply-splits ──────────────────────────────────────
+
+
+@app.post("/api/suggest-splits")
+def suggest_splits_endpoint(body: AiKeyIn = AiKeyIn()):
+    from core import ai
+
+    gemini_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not gemini_key:
+        raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+    try:
+        suggestions = ai.suggest_splits(_app_data, gemini_key)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    return {"suggestions": suggestions}
+
+
+@app.post("/api/apply-splits")
+def apply_splits(body: ApplySplitsIn):
+    """承認されたサブタグを task.tags[0] に書き込む。"""
+    applied = 0
+    for s in body.splits:
+        try:
+            task = _find_task(s.task_id)
+            task.tags = [s.suggested_tag] + task.tags[1:]
             applied += 1
         except HTTPException:
             pass

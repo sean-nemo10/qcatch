@@ -37,16 +37,20 @@ def _build_system_prompt(data: AppData) -> str:
     rec_count = len(data.recurring)
 
     return (
-        "あなたは親切なタスク管理アシスタントです。日本語で簡潔に返答してください。\n\n"
-        "【現在の状況】\n"
+        "あなたはタスク管理の思考パートナーです。日本語で返答してください。\n\n"
+        "【返答の原則】\n"
+        "- タスクの一覧をそのまま箇条書きで返すのは禁止。ダッシュボードと同じ情報を出すだけでは価値がない。\n"
+        "- パターン・優先順位・懸念点・今日のフォーカスを分析して、洞察のある返答をすること。\n"
+        "- 「なぜそれが重要か」「次に何をすべきか」を必ず含めること。\n"
+        "- タスクIDは内部処理にのみ使用し、ユーザーへの返答には絶対に含めないこと。\n"
+        "- タスクを完了する際は先に get_tasks でIDを確認してから complete_task を使うこと。\n"
+        "- 状況を把握したい場合は get_analysis を使うと滞留・傾向・優先度の分析データが得られる。\n\n"
+        "【現在の概況】\n"
         f"- Inbox（未分類）: {inbox_count} 件\n"
         f"- Todo（分類済み）: {todo_count} 件\n"
         f"- 本日完了: {done_today} 件\n"
         f"- アクティブなチェックリスト: {cl_active} 件\n"
-        f"- 定期タスクルール: {rec_count} 件\n\n"
-        "タスクを完了する際は、先に get_tasks でIDを確認してから complete_task を使ってください。\n"
-        "【重要】タスクIDは内部処理にのみ使用し、ユーザーへの返答には絶対に含めないこと。\n"
-        "優先順位の判断を求められたら、緊急度・重要度・カテゴリを考慮して具体的に提案すること。"
+        f"- 定期タスクルール: {rec_count} 件"
     )
 
 
@@ -115,6 +119,11 @@ def _build_tools():
             types.FunctionDeclaration(
                 name="get_summary",
                 description="タスク全体の概要サマリーを取得する",
+                parameters=types.Schema(type=types.Type.OBJECT, properties={}),
+            ),
+            types.FunctionDeclaration(
+                name="get_analysis",
+                description="タスクのパターン・滞留・傾向・優先度の分析データを取得する。状況把握や優先順位付けに使う。",
                 parameters=types.Schema(type=types.Type.OBJECT, properties={}),
             ),
         ]
@@ -212,6 +221,72 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             f"Inbox: {inbox_count}件 | Todo: {len(todo)}件 ({cat_str}) | 本日完了: {done_today}件\n"
             f"チェックリスト: {len(data.checklists)}件 | 定期タスク: {len(data.recurring)}件"
         ), actions
+
+    elif name == "get_analysis":
+        from datetime import timedelta
+
+        now = datetime.now()
+        week_ago = now - timedelta(days=7)
+        todo = [t for t in data.tasks if t.status == "todo"]
+        inbox_count = sum(1 for t in data.tasks if t.status == "inbox")
+
+        # 滞留タスク（7日以上 todo のまま）
+        stuck = [t for t in todo if t.created_at and (now - t.created_at).days >= 7]
+        oldest = (
+            max(todo, key=lambda t: (now - t.created_at).days, default=None)
+            if todo
+            else None
+        )
+
+        # カテゴリ分布
+        cat_dist = Counter(t.category or "未分類" for t in todo)
+
+        # 今週の完了数
+        done_week = sum(
+            1
+            for t in data.tasks
+            if t.status == "done" and t.completed_at and t.completed_at >= week_ago
+        )
+        done_today_count = sum(
+            1
+            for t in data.tasks
+            if t.status == "done"
+            and t.completed_at
+            and t.completed_at.date() == date.today()
+        )
+
+        # 期日切れチェックリスト
+        overdue_cls = [
+            cl
+            for cl in data.checklists
+            if cl.due_date and cl.due_date < now and any(not i.done for i in cl.items)
+        ]
+
+        lines = [
+            f"【タスク分析】",
+            f"Todo 合計: {len(todo)} 件 / Inbox 未分類: {inbox_count} 件",
+            f"滞留タスク（7日以上）: {len(stuck)} 件",
+        ]
+        if oldest:
+            age = (now - oldest.created_at).days
+            lines.append(
+                f"最古のタスク: 「{oldest.text}」（{age}日前、{oldest.category or '未分類'}）"
+            )
+        if stuck:
+            lines.append(
+                "滞留中のタスク例: " + " / ".join(f"「{t.text}」" for t in stuck[:5])
+            )
+        lines.append(
+            "カテゴリ分布: "
+            + " / ".join(f"{k}:{v}件" for k, v in cat_dist.most_common())
+        )
+        lines.append(f"今週完了: {done_week} 件 / 本日完了: {done_today_count} 件")
+        if overdue_cls:
+            lines.append(
+                f"期日切れチェックリスト: {len(overdue_cls)} 件 — "
+                + " / ".join(f"「{cl.name}」" for cl in overdue_cls[:3])
+            )
+        return "\n".join(lines), actions
 
     return f"未知の関数: {name}", actions
 

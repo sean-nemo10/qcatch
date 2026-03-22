@@ -183,6 +183,87 @@ def sort_with_anthropic(tasks: list[Task], api_key: str) -> list[Task]:
     return _parse_json_response(tasks, message.content[0].text)
 
 
+# ── スプリット提案 ────────────────────────────────────────────────────────────
+
+SPLIT_THRESHOLD = 5
+
+
+def suggest_splits(data: AppData, api_key: str) -> list[dict]:
+    """
+    todo タスクが SPLIT_THRESHOLD 件以上溜まったカテゴリに対し、
+    タスク内容に即したサブタグを AI が提案する。
+    戻り値: [{"task_id": str, "text": str, "category": str, "suggested_tag": str}]
+    """
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        raise RuntimeError(
+            "google-genai が未インストールです: pip install google-genai"
+        )
+
+    todo_tasks = [t for t in data.tasks if t.status == "todo"]
+
+    by_cat: dict[str, list] = defaultdict(list)
+    for t in todo_tasks:
+        by_cat[t.category or "その他"].append(t)
+
+    overloaded = {
+        cat: tasks for cat, tasks in by_cat.items() if len(tasks) >= SPLIT_THRESHOLD
+    }
+    if not overloaded:
+        return []
+
+    client = genai.Client(api_key=api_key)
+    results = []
+
+    for cat, tasks in overloaded.items():
+        tasks_text = "\n".join(f"- id={t.id} text={t.text}" for t in tasks)
+        prompt = (
+            f"以下は「{cat}」カテゴリのタスク一覧です。\n"
+            f"各タスクの内容に合わせて、具体的で短いサブタグ（グループ名）を日本語で提案してください。\n"
+            f"サブタグはタスクの実際の内容を反映した具体的な名前にしてください（例: 「qcatchの実装」「家計管理」「資料作成」など）。\n"
+            f"自然にグループ化できるタスクだけをまとめてください。無理に全タスクを別グループにしなくていいです。\n"
+            f"明確なグループが見当たらないタスクには null を設定してください。\n\n"
+            f"{tasks_text}\n\n"
+            f"以下の JSON 形式のみで返してください（説明文不要）:\n"
+            f'{{"items": [{{"id": "...", "tag": "サブタグ名 or null"}}]}}'
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.2),
+        )
+
+        try:
+            text = response.text.strip()
+            if text.startswith("```"):
+                lines = text.splitlines()
+                text = "\n".join(
+                    lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+                )
+            raw = json.loads(text)
+            task_map = {t.id: t for t in tasks}
+            for item in raw.get("items", []):
+                tid = item.get("id", "")
+                tag = item.get("tag")
+                if tid in task_map and tag and tag not in ("null", None):
+                    t = task_map[tid]
+                    results.append(
+                        {
+                            "task_id": tid,
+                            "text": t.text,
+                            "category": cat,
+                            "suggested_tag": str(tag),
+                        }
+                    )
+        except Exception:
+            pass
+
+    return results
+
+
 # ── タグ提案 ──────────────────────────────────────────────────────────────────
 
 
