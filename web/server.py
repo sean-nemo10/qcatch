@@ -579,6 +579,37 @@ def _save_config(cfg: dict) -> None:
     )
 
 
+# ── /api/export ───────────────────────────────────────────────────────────────
+
+
+@app.get("/api/export/markdown")
+def export_markdown():
+    """todo タスクをカテゴリ別 Markdown で返す。"""
+    from collections import defaultdict
+
+    todo = [t for t in _app_data.tasks if t.status == "todo"]
+    by_cat: dict = defaultdict(list)
+    for t in todo:
+        by_cat[t.category or "未分類"].append(t)
+
+    lines = ["# qcatch タスクリスト\n"]
+    for cat, tasks in sorted(by_cat.items()):
+        lines.append(f"## {cat}\n")
+        for t in tasks:
+            sub = f" `{t.tags[0]}`" if t.tags else ""
+            lines.append(f"- [ ] {t.text}{sub}")
+        lines.append("")
+
+    content = "\n".join(lines)
+    from fastapi.responses import PlainTextResponse
+
+    return PlainTextResponse(
+        content,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=tasks.md"},
+    )
+
+
 # ── サーバー起動 ──────────────────────────────────────────────────────────────
 
 

@@ -208,6 +208,10 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <button class="btn btn-warning" onclick="runSort()">✨ AI 分類</button>
     <span id="sort-status" style="font-size:12px;color:#888"></span>
   </div>
+  <div style="margin-bottom:10px">
+    <input id="inbox-search" placeholder="🔍 Inbox を検索…" oninput="filterInbox(this.value)"
+      style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit">
+  </div>
   <div id="inbox-list" class="task-list"></div>
 </div>
 
@@ -343,6 +347,12 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       既存のタスクのカテゴリを AI が見直し、変更案を提示します。承認したもののみ反映されます。
     </p>
     <button class="btn btn-warning" onclick="suggestTags()">🔍 タグ変更を提案</button>
+  </div>
+
+  <div class="form-card">
+    <h3>エクスポート</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:12px">todo タスクをカテゴリ別 Markdown でダウンロードします。</p>
+    <a href="/api/export/markdown" download="tasks.md" class="btn btn-ghost btn-sm">⬇ Markdown でダウンロード</a>
   </div>
 </div>
 
@@ -824,6 +834,14 @@ async function classifyInbox(taskId, category) {
     setTimeout(() => loadInbox(), 300);
     updateBadges();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
+}
+
+function filterInbox(query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll('#inbox-list .task-item').forEach(el => {
+    const txt = (el.querySelector('.task-text')?.textContent || '').toLowerCase();
+    el.style.display = (!q || txt.includes(q)) ? '' : 'none';
+  });
 }
 
 async function runSort() {
