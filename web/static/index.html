@@ -189,8 +189,9 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <input id="cl-name" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
     <div class="form-row" style="align-items:center;margin-bottom:10px">
       <label style="font-size:12px;color:#888;white-space:nowrap;margin-right:6px">期日（任意）</label>
-      <input id="cl-due" type="datetime-local" class="form-input" style="margin:0;flex:1">
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cl-due').value=''">クリア</button>
+      <input id="cl-due-date" type="date" class="form-input" style="margin:0;flex:1">
+      <input id="cl-due-time" type="time" step="300" class="form-input" style="margin:0;width:110px" placeholder="時刻（任意）">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cl-due-date').value='';document.getElementById('cl-due-time').value=''">クリア</button>
     </div>
     <div id="cl-items-inputs">
       <div class="form-row"><input placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>
@@ -283,7 +284,10 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <div id="modal-due" class="modal-overlay">
   <div class="modal" style="max-width:360px">
     <h2>期日を設定</h2>
-    <input id="modal-due-input" type="datetime-local" class="form-input" style="margin:16px 0">
+    <div style="display:flex;gap:8px;margin:16px 0">
+      <input id="modal-due-date" type="date" class="form-input" style="margin:0;flex:1">
+      <input id="modal-due-time" type="time" step="300" class="form-input" style="margin:0;width:110px" placeholder="時刻（任意）">
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeDueModal()">キャンセル</button>
       <button class="btn btn-danger btn-sm" onclick="saveDue(true)">クリア</button>
@@ -784,25 +788,40 @@ async function createChecklist() {
   if (!name) { showStatus('チェックリスト名を入力してください', 'error', 2000); return; }
   const items = [...document.querySelectorAll('.cl-item-input')]
     .map(i => i.value.trim()).filter(Boolean);
-  const dueRaw = document.getElementById('cl-due').value;
-  const due_date = dueRaw ? new Date(dueRaw).toISOString() : null;
+  const due_date = buildDueDate('cl-due-date', 'cl-due-time');
   try {
     await api('POST', '/api/checklists', {name, items, due_date});
     document.getElementById('cl-name').value = '';
-    document.getElementById('cl-due').value = '';
+    document.getElementById('cl-due-date').value = '';
+    document.getElementById('cl-due-time').value = '';
     document.getElementById('cl-items-inputs').innerHTML = '<div class="form-row"><input placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>';
     showStatus('チェックリストを作成しました', 'success');
     loadChecklists();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
+function buildDueDate(dateId, timeId) {
+  const d = document.getElementById(dateId).value;
+  if (!d) return null;
+  const t = document.getElementById(timeId).value;
+  return new Date(t ? `${d}T${t}` : `${d}T00:00`).toISOString();
+}
+
 let _dueClId = null;
 function editClDue(clId, currentDue) {
   _dueClId = clId;
-  const inp = document.getElementById('modal-due-input');
-  inp.value = currentDue ? new Date(currentDue).toISOString().slice(0,16) : '';
+  if (currentDue) {
+    const dt = new Date(currentDue);
+    document.getElementById('modal-due-date').value = dt.toISOString().slice(0,10);
+    const h = String(dt.getHours()).padStart(2,'0');
+    const m = String(dt.getMinutes()).padStart(2,'0');
+    document.getElementById('modal-due-time').value = (h === '00' && m === '00') ? '' : `${h}:${m}`;
+  } else {
+    document.getElementById('modal-due-date').value = '';
+    document.getElementById('modal-due-time').value = '';
+  }
   document.getElementById('modal-due').classList.add('show');
-  setTimeout(() => inp.focus(), 50);
+  setTimeout(() => document.getElementById('modal-due-date').focus(), 50);
 }
 function closeDueModal() {
   document.getElementById('modal-due').classList.remove('show');
@@ -810,8 +829,7 @@ function closeDueModal() {
 }
 async function saveDue(clear) {
   if (!_dueClId) return;
-  const val = document.getElementById('modal-due-input').value;
-  const due_date = clear || !val ? null : new Date(val).toISOString();
+  const due_date = clear ? null : buildDueDate('modal-due-date', 'modal-due-time');
   try {
     await api('PATCH', `/api/checklists/${_dueClId}`, {due_date});
     showStatus(clear ? '期日をクリアしました' : '期日を保存しました', 'success', 2000);
