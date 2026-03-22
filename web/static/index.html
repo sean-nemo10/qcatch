@@ -102,6 +102,12 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .suggestion-text{flex:1;font-size:13px}
 .suggestion-arrow{color:#4fc3f7;font-size:16px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+/* ── カテゴリ変更ドロップダウン ── */
+.cat-change-wrap{position:relative;display:inline-block}
+.cat-change-menu{display:none;position:absolute;right:0;top:100%;z-index:50;background:#1a1a2e;border:1px solid #0f3460;border-radius:8px;padding:4px;min-width:110px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.cat-change-menu.open{display:block}
+.cat-change-item{display:block;width:100%;text-align:left;padding:5px 10px;font-size:12px;border:none;background:transparent;color:#e0e0e0;cursor:pointer;border-radius:4px;font-family:inherit}
+.cat-change-item:hover{background:#0f3460}
 /* ── サブタグチップ ── */
 .task-subtag{font-size:10px;padding:2px 7px;border-radius:8px;background:#1a3050;color:#4fc3f7;border:1px solid #0f3460;white-space:nowrap;margin-left:4px}
 /* ── Inbox カテゴリボタン ── */
@@ -873,6 +879,12 @@ async function loadTasks() {
             onkeydown="if(event.key==='Enter')saveEdit('${t.id}');if(event.key==='Escape')cancelEdit('${t.id}')"
             onblur="saveEdit('${t.id}')">
           <div class="task-actions" onclick="e=>e.stopPropagation()">
+            <div class="cat-change-wrap">
+              <span class="task-cat ${CAT_COLORS[t.category]||'cat-その他'}" style="cursor:pointer" onclick="toggleCatMenu('${t.id}',event)">${esc(t.category||'未分類')}</span>
+              <div class="cat-change-menu" id="catmenu-${t.id}">
+                ${CATS.map(c=>`<button class="cat-change-item" onclick="changeTaskCat('${t.id}','${c}',event)">${c}</button>`).join('')}
+              </div>
+            </div>
             <button class="btn btn-ghost btn-sm" id="edit-btn-${t.id}" onclick="startEdit('${t.id}');event.stopPropagation()">編集</button>
             <button class="btn btn-success btn-sm" onclick="completeOne('${t.id}');event.stopPropagation()">完了</button>
             <button class="btn btn-ghost btn-sm" onclick="moveToTrash('${t.id}');event.stopPropagation()">削除</button>
@@ -1380,6 +1392,27 @@ async function clearSubtag(taskId) {
     loadTasks();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
+
+function toggleCatMenu(id, e) {
+  e.stopPropagation();
+  const menu = document.getElementById('catmenu-' + id);
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('.cat-change-menu.open').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+
+async function changeTaskCat(id, cat, e) {
+  e.stopPropagation();
+  document.querySelectorAll('.cat-change-menu.open').forEach(m => m.classList.remove('open'));
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {category: cat});
+    loadTasks();
+  } catch(e2) { showStatus('エラー: ' + e2.message, 'error'); }
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.cat-change-menu.open').forEach(m => m.classList.remove('open'));
+});
 
 function filterTasks(query) {
   const q = query.trim().toLowerCase();

@@ -6,18 +6,51 @@ from collections import Counter
 from datetime import date, datetime
 from typing import Optional
 
+import json
+import sys
+from pathlib import Path
+
 from core.models import AppData, Category, Task
 from core import storage
 
 CATEGORIES: list[Category] = ["仕事", "プライベート", "買い物", "学習", "その他"]
 
-# 会話履歴（サーバーメモリ上、再起動でリセット）
+if getattr(sys, "frozen", False):
+    _BASE_DIR = Path(sys.executable).parent
+else:
+    _BASE_DIR = Path(__file__).parent.parent
+
+_HISTORY_FILE = _BASE_DIR / "data" / "chat_history.json"
+
+# 会話履歴（起動時にファイルから復元）
 _history: list[dict] = []  # {"role": "user"|"model", "text": str}
+
+
+def _load_history() -> None:
+    global _history
+    if _HISTORY_FILE.exists():
+        try:
+            _history = json.loads(_HISTORY_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            _history = []
+
+
+def _save_history() -> None:
+    try:
+        _HISTORY_FILE.write_text(
+            json.dumps(_history[-20:], ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
 
 
 def clear_history() -> None:
     global _history
     _history = []
+    _save_history()
+
+
+_load_history()
 
 
 # ── システムプロンプト ────────────────────────────────────────────────────────
@@ -422,6 +455,7 @@ def chat_stream(user_message: str, data: AppData, api_key: str):
     _history.append({"role": "model", "text": final_text})
     if len(_history) > 20:
         _history = _history[-20:]
+    _save_history()
 
     yield {"type": "done", "actions": ui_actions}
 
@@ -463,5 +497,6 @@ def chat(user_message: str, data: AppData, api_key: str) -> tuple[str, list[dict
     _history.append({"role": "model", "text": final_text})
     if len(_history) > 20:
         _history = _history[-20:]
+    _save_history()
 
     return final_text or "（応答がありませんでした）", ui_actions
