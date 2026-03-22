@@ -22,6 +22,7 @@ from core.models import (
     Category,
     ChecklistItem,
     ChecklistTemplate,
+    Importance,
     RecurringRule,
     Task,
 )
@@ -96,6 +97,7 @@ class TaskIn(BaseModel):
     text: str
     category: Optional[Category] = None
     due_date: Optional[datetime] = None
+    importance: Optional[Importance] = None
 
 
 class TaskPatch(BaseModel):
@@ -104,6 +106,7 @@ class TaskPatch(BaseModel):
     tags: Optional[list[str]] = None
     text: Optional[str] = None
     due_date: Optional[datetime] = None
+    importance: Optional[Importance] = None
 
 
 class ChecklistIn(BaseModel):
@@ -210,6 +213,8 @@ def update_task(task_id: str, body: TaskPatch):
         task.text = body.text.strip()
     if "due_date" in body.model_fields_set:
         task.due_date = body.due_date
+    if body.importance is not None:
+        task.importance = body.importance
     save_data_bg(_app_data)
     return task.model_dump()
 

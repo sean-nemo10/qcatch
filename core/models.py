@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 TaskStatus = Literal["inbox", "todo", "done", "trashed", "longterm"]
 Category = Literal["仕事", "プライベート", "買い物", "学習", "その他"]
+Importance = Literal["high", "medium", "low"]
 
 
 def _new_id() -> str:
@@ -25,6 +26,7 @@ class Task(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
+    importance: Importance = "medium"
 
 
 class ChecklistItem(BaseModel):
