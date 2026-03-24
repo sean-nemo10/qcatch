@@ -247,6 +247,99 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 /* ── タスク期日バッジ ── */
 .task-due{font-size:11px;padding:2px 6px;border-radius:6px;background:#1a2a10;color:#69f0ae;border:1px solid #1b5e20;white-space:nowrap;margin-left:4px;cursor:default}
 .task-due.overdue{background:#2a1010;color:#ff7043;border-color:#7f1d1d}
+/* ── 日記/ブログ共通 ── */
+.writing-mode-switch{display:flex;gap:6px;margin-bottom:16px}
+.mode-btn{flex:1;padding:9px;border:1px solid #555;border-radius:8px;background:transparent;color:#aaa;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
+.mode-btn.active{background:#0f3460;border-color:#4fc3f7;color:#4fc3f7;font-weight:600}
+.diary-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.diary-date-picker{background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;padding:8px 12px;font-family:inherit;cursor:pointer}
+.diary-date-picker:focus{outline:none;border-color:#4fc3f7}
+.diary-date-nav{background:transparent;border:1px solid #555;color:#aaa;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;min-height:36px}
+.diary-date-nav:hover{border-color:#4fc3f7;color:#4fc3f7}
+.writing-textarea{width:100%;min-height:240px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:"Meiryo","Segoe UI",sans-serif;padding:14px;resize:vertical;line-height:1.7;transition:border-color .2s}
+.writing-textarea:focus{outline:none;border-color:#4fc3f7}
+.diary-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.diary-save-status{font-size:12px;color:#666}
+.diary-history{margin-top:24px}
+.diary-history-title{font-size:13px;color:#666;margin-bottom:10px;font-weight:600;letter-spacing:.5px}
+.diary-history-item{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.diary-history-item:hover{border-color:#4fc3f7}
+.diary-history-item.active-item{border-color:#4fc3f7;background:#0f2547}
+.diary-history-date{font-size:13px;font-weight:600;color:#4fc3f7;white-space:nowrap}
+.diary-history-preview{flex:1;font-size:12px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── AI提案パネル ── */
+.writing-split-area{display:block}
+.writing-split-area.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.writing-split-area.split .writing-textarea{min-height:420px}
+.writing-split-area.split .suggest-panel{margin-top:0;max-height:520px;overflow-y:auto}
+.suggest-panel{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:14px;margin-top:12px}
+.suggest-panel-header{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.suggest-panel-title{font-size:13px;font-weight:600;color:#4fc3f7;flex:1}
+.suggest-split-btn{display:none}
+.suggest-panel-close{background:transparent;border:none;color:#666;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px}
+.suggest-panel-close:hover{color:#e0e0e0}
+.suggest-output{font-size:13px;line-height:1.7;color:#ccc;white-space:pre-wrap;min-height:40px}
+/* ── ブログ ── */
+.blog-form-fields{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.blog-title-input{width:100%;padding:10px 14px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:15px;font-weight:600;font-family:inherit}
+.blog-title-input:focus{outline:none;border-color:#4fc3f7}
+.blog-tags-input{width:100%;padding:8px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit}
+.blog-tags-input:focus{outline:none;border-color:#4fc3f7}
+.blog-list-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.blog-list-item:hover{border-color:#4fc3f7}
+.blog-list-item.active-item{border-color:#4fc3f7;background:#0f2547}
+.blog-list-title{font-size:14px;font-weight:600;color:#e0e0e0}
+.blog-list-meta{font-size:11px;color:#555;margin-top:2px}
+.blog-list-preview{font-size:12px;color:#777;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.blog-list-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.blog-tag{font-size:11px;padding:1px 7px;border-radius:10px;background:#1a2e1a;color:#69f0ae;border:1px solid #1b5e20}
+/* ── 分割表示ボタン（日記/ブログ） ── */
+.split-view-btn{background:#0f3460;border:1px solid #4fc3f7;color:#4fc3f7;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;transition:all .2s;white-space:nowrap}
+.split-view-btn:hover{background:#1a4080}
+.split-view-btn.active{background:#4fc3f7;color:#000}
+/* ── 語学タブ ── */
+.lang-subtabs{display:flex;gap:6px;margin-bottom:16px}
+.lang-subtab-btn{flex:1;padding:8px;border:1px solid #555;border-radius:8px;background:transparent;color:#aaa;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
+.lang-subtab-btn.active{background:#0f3460;border-color:#4fc3f7;color:#4fc3f7;font-weight:600}
+.lang-practice-box{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:16px;margin-bottom:14px}
+.lang-practice-box h4{font-size:13px;color:#4fc3f7;margin-bottom:10px;font-weight:600}
+.lang-problem{font-size:14px;line-height:1.7;white-space:pre-wrap;color:#e0e0e0}
+.lang-answer-row{display:flex;gap:8px;margin-top:10px}
+.lang-answer-input{flex:1;padding:9px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit}
+.lang-answer-input:focus{outline:none;border-color:#4caf50}
+.lang-correction{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;line-height:1.7;color:#ccc;white-space:pre-wrap;display:none}
+.lang-correction.show{display:block}
+.lang-save-card-row{display:flex;gap:8px;margin-top:10px;align-items:center;display:none}
+.lang-save-card-row.show{display:flex}
+.flashcard-item{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:14px;margin-bottom:10px}
+.flashcard-front{font-size:14px;font-weight:600;color:#e0e0e0;margin-bottom:6px}
+.flashcard-back{font-size:13px;color:#ccc;display:none}
+.flashcard-back.show{display:block}
+.flashcard-example{font-size:12px;color:#69f0ae;font-style:italic;margin-top:4px;display:none}
+.flashcard-example.show{display:block}
+.flashcard-meta{font-size:11px;color:#555;margin-top:6px}
+.review-rate-btns{display:flex;gap:8px;margin-top:10px}
+.review-rate-btn{flex:1;padding:9px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;transition:opacity .2s}
+.review-rate-btn:hover{opacity:.85}
+.btn-forget{background:#c62828;color:#fff}
+.btn-hard{background:#f9a825;color:#000}
+.btn-perfect{background:#2e7d32;color:#fff}
+.review-progress{font-size:12px;color:#888;margin-bottom:12px}
+/* ── 問題ごとの回答ブロック ── */
+.lang-q-block{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.lang-q-label{font-size:13px;font-weight:700;color:#4fc3f7;margin-bottom:8px;letter-spacing:.3px}
+.lang-correction{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;line-height:1.7;color:#ccc;white-space:pre-wrap;display:none}
+.lang-correction.show{display:block}
+/* ── 議論チャット ── */
+.lang-discuss-wrap{margin-top:12px;border-top:1px solid #0f3460;padding-top:12px}
+.lang-discuss-label{font-size:12px;color:#888;margin-bottom:8px}
+.lang-discuss-history{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:300px;overflow-y:auto}
+.lang-discuss-msg{padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.lang-discuss-user{background:#0f3460;color:#e0e0e0;align-self:flex-end;max-width:85%}
+.lang-discuss-ai{background:#16213e;border:1px solid #0f3460;color:#ccc;align-self:flex-start;max-width:90%}
+.lang-discuss-input-row{display:flex;gap:8px;align-items:flex-end}
+.lang-discuss-input-row textarea{flex:1;padding:8px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit;resize:none;line-height:1.5}
+.lang-discuss-input-row textarea:focus{outline:none;border-color:#4caf50}
 </style>
 </head>
 <body>
@@ -348,6 +441,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <button class="btn btn-ghost btn-sm" onclick="clearSelection('tasks')">選択解除</button>
     <span id="selected-count" style="font-size:12px;color:#888"></span>
     <div class="toolbar-right">
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('dashboard')">📊 ダッシュボード</button>
       <button class="btn btn-warning btn-sm" onclick="suggestSplits()">✨ AI サブフォルダ提案</button>
       <button class="btn btn-ghost btn-sm" onclick="toggleTrash()" id="trash-toggle-btn">🗑 ゴミ箱</button>
     </div>
@@ -493,6 +587,174 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <h3>一括インポート</h3>
     <p style="font-size:13px;color:#888;margin-bottom:12px">Claude・ChatGPT などの AI が生成したタスクリストをそのまま貼り付けて一括登録できます。</p>
     <button class="btn btn-primary" onclick="openImportModal()">📋 一括インポートを開く</button>
+  </div>
+</div>
+
+<!-- ── 日記/ブログ ── -->
+<div id="pane-diary" class="pane content">
+  <div class="writing-mode-switch">
+    <button id="mode-btn-diary" class="mode-btn active" onclick="setWritingMode('diary')">📅 日記</button>
+    <button id="mode-btn-blog" class="mode-btn" onclick="setWritingMode('blog')">✍️ ブログ</button>
+  </div>
+
+  <!-- 日記セクション -->
+  <div id="writing-diary">
+    <div class="diary-header">
+      <button class="diary-date-nav" onclick="diaryNavDay(-1)" aria-label="前日">‹</button>
+      <input type="date" id="diary-date" class="diary-date-picker" aria-label="日記の日付" onchange="loadDiary()">
+      <button class="diary-date-nav" onclick="diaryNavDay(1)" aria-label="翌日">›</button>
+      <button class="btn btn-ghost btn-sm" onclick="diaryGoToday()">今日</button>
+    </div>
+    <div id="diary-split-area" class="writing-split-area">
+      <div id="diary-editor-col">
+        <textarea id="diary-textarea" class="writing-textarea" placeholder="今日の振り返りを書いてください…" oninput="onDiaryInput()" aria-label="日記本文"></textarea>
+        <div class="diary-actions">
+          <button class="btn btn-success btn-sm" onclick="saveDiaryNow()">💾 保存</button>
+          <button class="btn btn-ghost btn-sm" onclick="requestWritingSuggest('diary')">💡 AIに提案を求める</button>
+          <button id="split-btn-diary" class="split-view-btn" onclick="toggleSplitView('diary')" style="display:none">⬜ 並べて表示</button>
+          <span id="diary-save-status" class="diary-save-status"></span>
+        </div>
+      </div>
+      <div id="suggest-panel-diary" class="suggest-panel" style="display:none">
+        <div class="suggest-panel-header">
+          <span class="suggest-panel-title">💡 AIからの提案</span>
+          <button class="suggest-panel-close" onclick="closeSuggestPanel('diary')" aria-label="閉じる">✕</button>
+        </div>
+        <div id="suggest-output-diary" class="suggest-output"></div>
+      </div>
+    </div>
+    <div class="diary-history">
+      <div class="diary-history-title">過去の日記</div>
+      <div id="diary-history-list"></div>
+    </div>
+  </div>
+
+  <!-- ブログセクション -->
+  <div id="writing-blog" style="display:none">
+    <div class="blog-form-fields">
+      <input id="blog-title" class="blog-title-input" placeholder="タイトルを入力…" aria-label="ブログタイトル" oninput="onBlogInput()">
+      <input id="blog-tags" class="blog-tags-input" placeholder="タグ（カンマ区切り　例: 技術, Python, 日常）" aria-label="タグ" oninput="onBlogInput()">
+    </div>
+    <div id="blog-split-area" class="writing-split-area">
+      <div id="blog-editor-col">
+        <textarea id="blog-textarea" class="writing-textarea" placeholder="本文を書いてください…" oninput="onBlogInput()" aria-label="ブログ本文"></textarea>
+        <div class="diary-actions">
+          <button class="btn btn-success btn-sm" onclick="saveBlogPost()">💾 保存</button>
+          <button class="btn btn-ghost btn-sm" onclick="newBlogPost()">＋ 新規</button>
+          <button class="btn btn-danger btn-sm" id="blog-delete-btn" onclick="deleteBlogPost()" style="display:none">🗑 削除</button>
+          <button class="btn btn-ghost btn-sm" onclick="requestWritingSuggest('blog')">💡 AIに提案を求める</button>
+          <button id="split-btn-blog" class="split-view-btn" onclick="toggleSplitView('blog')" style="display:none">⬜ 並べて表示</button>
+          <span id="blog-save-status" class="diary-save-status"></span>
+        </div>
+      </div>
+      <div id="suggest-panel-blog" class="suggest-panel" style="display:none">
+        <div class="suggest-panel-header">
+          <span class="suggest-panel-title">💡 AIからの提案</span>
+          <button class="suggest-panel-close" onclick="closeSuggestPanel('blog')" aria-label="閉じる">✕</button>
+        </div>
+        <div id="suggest-output-blog" class="suggest-output"></div>
+      </div>
+    </div>
+    <div class="diary-history">
+      <div class="diary-history-title">ブログ記事一覧</div>
+      <div id="blog-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 語学学習 ── -->
+<div id="pane-lang" class="pane content">
+  <div class="lang-subtabs">
+    <button id="lang-subtab-practice" class="lang-subtab-btn active" onclick="setLangSubtab('practice')">✍️ 英語練習</button>
+    <button id="lang-subtab-review" class="lang-subtab-btn" onclick="setLangSubtab('review')">🃏 カード復習</button>
+    <button id="lang-subtab-cards" class="lang-subtab-btn" onclick="setLangSubtab('cards')">📚 カード一覧</button>
+  </div>
+
+  <!-- 英語練習 -->
+  <div id="lang-practice-pane">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <input type="date" id="lang-date" class="diary-date-picker" aria-label="練習日" style="font-size:13px">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('lang-date').value=todayStr();loadLangPractice()">今日</button>
+      <button class="btn btn-primary btn-sm" onclick="loadLangPractice()">🤖 問題を生成</button>
+      <span id="lang-practice-status" style="font-size:12px;color:#888"></span>
+    </div>
+    <div id="lang-practice-output" class="lang-practice-box" style="display:none">
+      <h4>📝 英語練習問題</h4>
+      <div id="lang-problem-text" class="lang-problem"></div>
+    </div>
+    <!-- 問題ごとの回答欄 (3問分) -->
+    <div id="lang-answer-sections" style="display:none">
+      <div class="lang-q-block">
+        <div class="lang-q-label">問題 1 への回答</div>
+        <textarea class="lang-answer-input" id="lang-answer-1" rows="3" placeholder="Write your English here…" aria-label="問題1 回答欄"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="submitLangAnswer(1)">✏️ 添削する</button>
+          <button id="lang-save-1" class="btn btn-success btn-sm" onclick="saveLangCard(1)" style="display:none">💾 カードに保存</button>
+          <span id="lang-save-status-1" style="font-size:12px;color:#4caf50"></span>
+        </div>
+        <div class="lang-correction" id="lang-correction-1"></div>
+        <div class="lang-discuss-wrap" id="lang-discuss-1" style="display:none">
+          <div class="lang-discuss-label">💬 添削について質問・議論する</div>
+          <div class="lang-discuss-history" id="lang-discuss-history-1"></div>
+          <div class="lang-discuss-input-row">
+            <textarea id="lang-discuss-input-1" rows="2" placeholder="なぜこの表現が自然なの？　など…" aria-label="フォローアップ質問"></textarea>
+            <button class="btn btn-ghost btn-sm" onclick="sendLangDiscuss(1)">送信</button>
+          </div>
+        </div>
+      </div>
+      <div class="lang-q-block">
+        <div class="lang-q-label">問題 2 への回答</div>
+        <textarea class="lang-answer-input" id="lang-answer-2" rows="3" placeholder="Write your English here…" aria-label="問題2 回答欄"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="submitLangAnswer(2)">✏️ 添削する</button>
+          <button id="lang-save-2" class="btn btn-success btn-sm" onclick="saveLangCard(2)" style="display:none">💾 カードに保存</button>
+          <span id="lang-save-status-2" style="font-size:12px;color:#4caf50"></span>
+        </div>
+        <div class="lang-correction" id="lang-correction-2"></div>
+        <div class="lang-discuss-wrap" id="lang-discuss-2" style="display:none">
+          <div class="lang-discuss-label">💬 添削について質問・議論する</div>
+          <div class="lang-discuss-history" id="lang-discuss-history-2"></div>
+          <div class="lang-discuss-input-row">
+            <textarea id="lang-discuss-input-2" rows="2" placeholder="なぜこの表現が自然なの？　など…" aria-label="フォローアップ質問"></textarea>
+            <button class="btn btn-ghost btn-sm" onclick="sendLangDiscuss(2)">送信</button>
+          </div>
+        </div>
+      </div>
+      <div class="lang-q-block">
+        <div class="lang-q-label">問題 3 への回答</div>
+        <textarea class="lang-answer-input" id="lang-answer-3" rows="3" placeholder="Write your English here…" aria-label="問題3 回答欄"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="submitLangAnswer(3)">✏️ 添削する</button>
+          <button id="lang-save-3" class="btn btn-success btn-sm" onclick="saveLangCard(3)" style="display:none">💾 カードに保存</button>
+          <span id="lang-save-status-3" style="font-size:12px;color:#4caf50"></span>
+        </div>
+        <div class="lang-correction" id="lang-correction-3"></div>
+        <div class="lang-discuss-wrap" id="lang-discuss-3" style="display:none">
+          <div class="lang-discuss-label">💬 添削について質問・議論する</div>
+          <div class="lang-discuss-history" id="lang-discuss-history-3"></div>
+          <div class="lang-discuss-input-row">
+            <textarea id="lang-discuss-input-3" rows="2" placeholder="なぜこの表現が自然なの？　など…" aria-label="フォローアップ質問"></textarea>
+            <button class="btn btn-ghost btn-sm" onclick="sendLangDiscuss(3)">送信</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- カード復習 -->
+  <div id="lang-review-pane" style="display:none">
+    <div id="review-progress" class="review-progress"></div>
+    <div id="review-card-area">
+      <div class="empty" id="review-empty">復習カードはありません 🎉</div>
+    </div>
+  </div>
+
+  <!-- カード一覧 -->
+  <div id="lang-cards-pane" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn btn-ghost btn-sm" onclick="loadAllCards()">更新</button>
+    </div>
+    <div id="all-cards-list"></div>
   </div>
 </div>
 
@@ -747,6 +1009,8 @@ function switchTab(name) {
   else if (name === 'tasks') loadTasks();
   else if (name === 'longterm') loadLongterm();
   else if (name === 'checklists') loadChecklists();
+  else if (name === 'diary') initDiaryPane();
+  else if (name === 'lang') initLangPane();
   else if (name === 'recurring') loadRecurring();
   else if (name === 'settings') loadSettings();
 }
@@ -972,7 +1236,10 @@ async function loadDashboard() {
         <div style="padding:10px 14px;background:${_inboxCount > 0 ? '#1a2a10' : '#0d1f2d'};border:1px solid ${_inboxCount > 0 ? '#2e7d32' : '#0f3460'};border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
           <span>📥</span>
           <span>${_inboxCount > 0 ? `Inbox に <strong>${_inboxCount} 件</strong> の未分類タスク` : 'Inbox は空です'}</span>
-          <button class="btn ${_inboxCount > 0 ? 'btn-warning' : 'btn-ghost'} btn-sm" style="margin-left:auto" onclick="switchTabByName('inbox')">📥 Inbox へ</button>
+          <span style="margin-left:auto;display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="switchTabByName('tasks')">✅ タスク</button>
+            <button class="btn ${_inboxCount > 0 ? 'btn-warning' : 'btn-ghost'} btn-sm" onclick="switchTabByName('inbox')">📥 Inbox へ</button>
+          </span>
         </div>
       </div>`;
 
@@ -1377,6 +1644,7 @@ async function addTask() {
     document.getElementById('quick-date-hint').style.display = 'none';
     loadInbox();
     showStatus('追加しました: ' + text.slice(0,30), 'success', 3000);
+    runSort();
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
@@ -2689,6 +2957,622 @@ async function executeImport() {
   } catch(e) { showStatus('エラー: ' + e.message, 'error'); }
 }
 
+// ── 日記/ブログ ───────────────────────────────────────────────────────
+let _diaryDebounce = null;
+let _blogDebounce = null;
+let _editingBlogId = null;
+let _writingMode = 'diary';
+
+function _todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function setWritingMode(mode) {
+  _writingMode = mode;
+  document.getElementById('writing-diary').style.display = mode === 'diary' ? '' : 'none';
+  document.getElementById('writing-blog').style.display = mode === 'blog' ? '' : 'none';
+  document.getElementById('mode-btn-diary').classList.toggle('active', mode === 'diary');
+  document.getElementById('mode-btn-blog').classList.toggle('active', mode === 'blog');
+  if (mode === 'blog') loadBlogList();
+}
+
+function initDiaryPane() {
+  const picker = document.getElementById('diary-date');
+  if (!picker.value) picker.value = _todayStr();
+  loadDiary();
+  loadDiaryHistory();
+}
+
+// ── 日記 ──
+async function loadDiary() {
+  const date = document.getElementById('diary-date').value;
+  if (!date) return;
+  document.getElementById('diary-save-status').textContent = '';
+  closeSuggestPanel('diary');
+  try {
+    const entry = await api('GET', `/api/diary/${date}`);
+    document.getElementById('diary-textarea').value = entry.content;
+  } catch(e) {
+    document.getElementById('diary-textarea').value = '';
+  }
+  document.querySelectorAll('#diary-history-list .diary-history-item').forEach(el => {
+    el.classList.toggle('active-item', el.dataset.date === date);
+  });
+}
+
+async function loadDiaryHistory() {
+  const list = document.getElementById('diary-history-list');
+  try {
+    const res = await api('GET', '/api/diary');
+    if (!res.dates.length) {
+      list.innerHTML = '<div style="font-size:13px;color:#555;padding:8px 0">まだ日記がありません</div>';
+      return;
+    }
+    const cur = document.getElementById('diary-date').value;
+    list.innerHTML = res.dates.slice(0, 15).map(d => `
+      <div class="diary-history-item${d === cur ? ' active-item' : ''}" data-date="${d}" onclick="jumpToDiary('${d}')">
+        <span class="diary-history-date">${d}</span>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = ''; }
+}
+
+function jumpToDiary(dateStr) {
+  document.getElementById('diary-date').value = dateStr;
+  loadDiary();
+}
+
+function diaryNavDay(delta) {
+  const picker = document.getElementById('diary-date');
+  const d = new Date((picker.value || _todayStr()) + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  picker.value = d.toISOString().slice(0, 10);
+  loadDiary();
+}
+
+function diaryGoToday() {
+  document.getElementById('diary-date').value = _todayStr();
+  loadDiary();
+}
+
+function onDiaryInput() {
+  document.getElementById('diary-save-status').textContent = '未保存…';
+  clearTimeout(_diaryDebounce);
+  _diaryDebounce = setTimeout(saveDiaryNow, 1500);
+}
+
+async function saveDiaryNow() {
+  clearTimeout(_diaryDebounce);
+  const date = document.getElementById('diary-date').value;
+  const content = document.getElementById('diary-textarea').value.trim();
+  const statusEl = document.getElementById('diary-save-status');
+  if (!date || !content) { statusEl.textContent = ''; return; }
+  try {
+    await api('POST', '/api/diary', { date_str: date, content, referenced_task_ids: [] });
+    statusEl.textContent = '✓ 保存済み';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    loadDiaryHistory();
+  } catch(e) { statusEl.textContent = '保存エラー'; }
+}
+
+// ── ブログ ──
+function newBlogPost() {
+  _editingBlogId = null;
+  document.getElementById('blog-title').value = '';
+  document.getElementById('blog-tags').value = '';
+  document.getElementById('blog-textarea').value = '';
+  document.getElementById('blog-save-status').textContent = '';
+  document.getElementById('blog-delete-btn').style.display = 'none';
+  closeSuggestPanel('blog');
+  document.querySelectorAll('#blog-list .blog-list-item').forEach(el => el.classList.remove('active-item'));
+}
+
+function onBlogInput() {
+  document.getElementById('blog-save-status').textContent = '未保存…';
+  clearTimeout(_blogDebounce);
+  _blogDebounce = setTimeout(saveBlogPost, 1500);
+}
+
+async function saveBlogPost() {
+  clearTimeout(_blogDebounce);
+  const title = document.getElementById('blog-title').value.trim();
+  const content = document.getElementById('blog-textarea').value.trim();
+  const tagsRaw = document.getElementById('blog-tags').value;
+  const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+  const statusEl = document.getElementById('blog-save-status');
+  if (!title && !content) { statusEl.textContent = ''; return; }
+  try {
+    if (_editingBlogId) {
+      await api('PATCH', `/api/blog/${_editingBlogId}`, { title: title || '（無題）', tags, content });
+    } else {
+      const post = await api('POST', '/api/blog', { title: title || '（無題）', tags, content });
+      _editingBlogId = post.id;
+      document.getElementById('blog-delete-btn').style.display = '';
+    }
+    statusEl.textContent = '✓ 保存済み';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    loadBlogList();
+  } catch(e) { statusEl.textContent = '保存エラー'; }
+}
+
+async function loadBlogList() {
+  const list = document.getElementById('blog-list');
+  try {
+    const res = await api('GET', '/api/blog');
+    if (!res.posts.length) {
+      list.innerHTML = '<div style="font-size:13px;color:#555;padding:8px 0">まだブログ記事がありません</div>';
+      return;
+    }
+    list.innerHTML = res.posts.map(p => `
+      <div class="blog-list-item${p.id === _editingBlogId ? ' active-item' : ''}" onclick="loadBlogPost('${p.id}')">
+        <div style="flex:1;min-width:0">
+          <div class="blog-list-title">${esc(p.title)}</div>
+          <div class="blog-list-meta">${(p.updated_at||'').slice(0,10)}</div>
+          ${p.tags&&p.tags.length ? `<div class="blog-list-tags">${p.tags.map(t=>`<span class="blog-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+          ${p.preview ? `<div class="blog-list-preview">${esc(p.preview)}</div>` : ''}
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = ''; }
+}
+
+async function loadBlogPost(id) {
+  try {
+    const post = await api('GET', `/api/blog/${id}`);
+    _editingBlogId = post.id;
+    document.getElementById('blog-title').value = post.title;
+    document.getElementById('blog-tags').value = (post.tags||[]).join(', ');
+    document.getElementById('blog-textarea').value = post.content;
+    document.getElementById('blog-save-status').textContent = '';
+    document.getElementById('blog-delete-btn').style.display = '';
+    closeSuggestPanel('blog');
+    loadBlogList();
+  } catch(e) { showStatus('読み込みエラー', 'error'); }
+}
+
+async function deleteBlogPost() {
+  if (!_editingBlogId) return;
+  if (!confirm('この記事を削除しますか？')) return;
+  try {
+    await api('DELETE', `/api/blog/${_editingBlogId}`);
+    newBlogPost();
+    loadBlogList();
+    showStatus('削除しました', 'success');
+  } catch(e) { showStatus('削除エラー', 'error'); }
+}
+
+// ── AI提案（日記/ブログ共通）──
+function closeSuggestPanel(mode) {
+  document.getElementById(`suggest-panel-${mode}`).style.display = 'none';
+  document.getElementById(`suggest-output-${mode}`).textContent = '';
+  const splitArea = document.getElementById(`${mode}-split-area`);
+  if (splitArea) splitArea.classList.remove('split');
+  const splitBtn = document.getElementById(`split-btn-${mode}`);
+  if (splitBtn) { splitBtn.style.display = 'none'; splitBtn.classList.remove('active'); splitBtn.textContent = '⬜ 並べて表示'; }
+}
+
+function toggleSplitView(mode) {
+  const splitArea = document.getElementById(`${mode}-split-area`);
+  const splitBtn = document.getElementById(`split-btn-${mode}`);
+  const isSplit = splitArea.classList.toggle('split');
+  splitBtn.classList.toggle('active', isSplit);
+  splitBtn.textContent = isSplit ? '▣ 並列解除' : '⬜ 並べて表示';
+}
+
+async function requestWritingSuggest(mode) {
+  const taId = mode === 'diary' ? 'diary-textarea' : 'blog-textarea';
+  const content = document.getElementById(taId).value.trim();
+  // ブログは空のまま呼び出し不可。日記は空でも可（タスクから話題提案）
+  if (!content && mode === 'blog') { showStatus('まず文章を書いてください', 'info', 2000); return; }
+
+  const panel = document.getElementById(`suggest-panel-${mode}`);
+  const output = document.getElementById(`suggest-output-${mode}`);
+  const splitBtn = document.getElementById(`split-btn-${mode}`);
+  panel.style.display = '';
+  splitBtn.style.display = 'none'; // 生成中は非表示
+  output.textContent = '提案を生成中…';
+
+  const extra = mode === 'diary'
+    ? { date: document.getElementById('diary-date').value }
+    : { title: document.getElementById('blog-title').value, tags: document.getElementById('blog-tags').value };
+
+  const apiKey = localStorage.getItem('gemini_api_key') || '';
+  output.textContent = '';
+
+  try {
+    const res = await fetch('/api/writing/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, mode, extra, api_key: apiKey }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue;
+        const ev = JSON.parse(part.slice(5).trim());
+        if (ev.type === 'text') output.textContent += ev.chunk;
+      }
+    }
+    // 生成完了 → 分割ボタンを表示
+    splitBtn.style.display = '';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch(e) {
+    output.textContent = 'エラー: ' + e.message;
+  }
+}
+
+// ── 語学タブ ──────────────────────────────────────────────
+let _langSubtab = 'practice';
+let _langPracticeText = '';
+// 問題ごとの状態: correction文字列 + 議論履歴
+let _langQState = {
+  1: {correction: '', history: []},
+  2: {correction: '', history: []},
+  3: {correction: '', history: []},
+};
+let _reviewCards = [];
+let _reviewIdx = 0;
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function setLangSubtab(name) {
+  _langSubtab = name;
+  ['practice','review','cards'].forEach(t => {
+    document.getElementById('lang-subtab-' + t).classList.toggle('active', t === name);
+    document.getElementById('lang-' + t + '-pane').style.display = t === name ? '' : 'none';
+  });
+  if (name === 'review') initReview();
+  else if (name === 'cards') loadAllCards();
+}
+
+function initLangPane() {
+  const dateEl = document.getElementById('lang-date');
+  if (!dateEl.value) dateEl.value = todayStr();
+  setLangSubtab('practice');
+}
+
+async function loadLangPractice() {
+  const dateStr = document.getElementById('lang-date').value || todayStr();
+  const apiKey = getApiKey();
+  const statusEl = document.getElementById('lang-practice-status');
+  const outputBox = document.getElementById('lang-practice-output');
+  const problemEl = document.getElementById('lang-problem-text');
+  const answerSections = document.getElementById('lang-answer-sections');
+
+  statusEl.textContent = '生成中…';
+  outputBox.style.display = '';
+  problemEl.textContent = '';
+  answerSections.style.display = 'none';
+  _langPracticeText = '';
+  // 回答欄をリセット
+  [1,2,3].forEach(n => {
+    document.getElementById(`lang-answer-${n}`).value = '';
+    document.getElementById(`lang-correction-${n}`).textContent = '';
+    document.getElementById(`lang-correction-${n}`).classList.remove('show');
+    document.getElementById(`lang-save-${n}`).style.display = 'none';
+    document.getElementById(`lang-save-status-${n}`).textContent = '';
+    document.getElementById(`lang-discuss-${n}`).style.display = 'none';
+    document.getElementById(`lang-discuss-history-${n}`).innerHTML = '';
+    _langQState[n] = {correction: '', history: []};
+  });
+
+  try {
+    const response = await fetch('/api/lang/practice', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date_str: dateStr, api_key: apiKey || null}),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({detail: response.statusText}));
+      problemEl.textContent = 'エラー: ' + (err.detail || response.statusText);
+      statusEl.textContent = '';
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue;
+        try {
+          const ev = JSON.parse(part.slice(6));
+          if (ev.type === 'text') {
+            _langPracticeText += ev.chunk;
+            problemEl.textContent = _langPracticeText;
+          } else if (ev.type === 'error') {
+            problemEl.textContent = 'エラー: ' + ev.message;
+          }
+        } catch {}
+      }
+    }
+    statusEl.textContent = '';
+    if (_langPracticeText) answerSections.style.display = '';
+  } catch(e) {
+    problemEl.textContent = 'エラー: ' + e.message;
+    statusEl.textContent = '';
+  }
+}
+
+async function submitLangAnswer(n) {
+  const userEnglish = document.getElementById(`lang-answer-${n}`).value.trim();
+  if (!userEnglish) { showStatus('英語を入力してください', 'error'); return; }
+  const apiKey = getApiKey();
+  const correctionEl = document.getElementById(`lang-correction-${n}`);
+  const saveBtn = document.getElementById(`lang-save-${n}`);
+  const discussWrap = document.getElementById(`lang-discuss-${n}`);
+
+  correctionEl.classList.remove('show');
+  correctionEl.textContent = '';
+  saveBtn.style.display = 'none';
+  saveBtn.className = 'btn btn-success btn-sm';
+  saveBtn.textContent = '💾 カードに保存';
+  discussWrap.style.display = 'none';
+  document.getElementById(`lang-discuss-history-${n}`).innerHTML = '';
+  _langQState[n] = {correction: '', history: []};
+
+  try {
+    const response = await fetch('/api/lang/correct', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        user_english: userEnglish,
+        context: _langPracticeText,
+        api_key: apiKey || null,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({detail: response.statusText}));
+      correctionEl.textContent = 'エラー: ' + (err.detail || response.statusText);
+      correctionEl.classList.add('show');
+      return;
+    }
+    correctionEl.classList.add('show');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let corrText = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue;
+        try {
+          const ev = JSON.parse(part.slice(6));
+          if (ev.type === 'text') {
+            corrText += ev.chunk;
+            correctionEl.textContent = corrText;
+          } else if (ev.type === 'error') {
+            correctionEl.textContent = 'エラー: ' + ev.message;
+          }
+        } catch {}
+      }
+    }
+    if (corrText) {
+      _langQState[n].correction = corrText;
+      saveBtn.style.display = '';
+      // 添削が充実している（=重要な学習ポイントあり）場合は強調
+      if (corrText.length > 150) {
+        saveBtn.className = 'btn btn-warning btn-sm';
+        saveBtn.textContent = '📌 重要: カードに保存';
+      }
+      discussWrap.style.display = '';
+    }
+  } catch(e) {
+    correctionEl.textContent = 'エラー: ' + e.message;
+    correctionEl.classList.add('show');
+  }
+}
+
+async function saveLangCard(n) {
+  const userEnglish = document.getElementById(`lang-answer-${n}`).value.trim();
+  const front = `[問題${n}] ` + _langPracticeText.slice(0, 180);
+  const back = userEnglish;
+  const example = _langQState[n].correction.slice(0, 300);
+  if (!front || !back) { showStatus('問題と回答が必要です', 'error'); return; }
+  try {
+    await api('POST', '/api/flashcards', {
+      front, back, example,
+      source: 'practice',
+      source_ref: document.getElementById('lang-date').value || todayStr(),
+    });
+    const statusEl = document.getElementById(`lang-save-status-${n}`);
+    statusEl.textContent = '✓ 保存済み';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    document.getElementById(`lang-save-${n}`).style.display = 'none';
+  } catch(e) {
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
+async function sendLangDiscuss(n) {
+  const inputEl = document.getElementById(`lang-discuss-input-${n}`);
+  const followUp = inputEl.value.trim();
+  if (!followUp) return;
+  const apiKey = getApiKey();
+  const historyEl = document.getElementById(`lang-discuss-history-${n}`);
+  const userAnswer = document.getElementById(`lang-answer-${n}`).value.trim();
+
+  // ユーザーメッセージを表示
+  const userDiv = document.createElement('div');
+  userDiv.className = 'lang-discuss-msg lang-discuss-user';
+  userDiv.textContent = followUp;
+  historyEl.appendChild(userDiv);
+  inputEl.value = '';
+
+  // AI応答バブル（ストリーミング用）
+  const aiDiv = document.createElement('div');
+  aiDiv.className = 'lang-discuss-msg lang-discuss-ai';
+  aiDiv.textContent = '…';
+  historyEl.appendChild(aiDiv);
+  historyEl.scrollTop = historyEl.scrollHeight;
+
+  // 履歴にユーザー発言を追加（送信前の状態をコピー）
+  const historySnapshot = [..._langQState[n].history];
+  _langQState[n].history.push({role: 'user', content: followUp});
+
+  let aiText = '';
+  try {
+    const response = await fetch('/api/lang/discuss', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        practice_text: _langPracticeText,
+        user_answer: userAnswer,
+        correction: _langQState[n].correction,
+        follow_up: followUp,
+        history: historySnapshot,
+        api_key: apiKey || null,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({detail: response.statusText}));
+      aiDiv.textContent = 'エラー: ' + (err.detail || response.statusText);
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue;
+        try {
+          const ev = JSON.parse(part.slice(6));
+          if (ev.type === 'text') {
+            aiText += ev.chunk;
+            aiDiv.textContent = aiText;
+            historyEl.scrollTop = historyEl.scrollHeight;
+          }
+        } catch {}
+      }
+    }
+    _langQState[n].history.push({role: 'model', content: aiText});
+  } catch(e) {
+    aiDiv.textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function initReview() {
+  const data = await api('GET', '/api/flashcards/due');
+  _reviewCards = data.cards || [];
+  _reviewIdx = 0;
+  _reviewCardShown = false;
+  renderReviewCard();
+}
+
+function renderReviewCard() {
+  const area = document.getElementById('review-card-area');
+  const progressEl = document.getElementById('review-progress');
+  const emptyEl = document.getElementById('review-empty');
+
+  if (_reviewCards.length === 0) {
+    area.innerHTML = '';
+    area.appendChild(emptyEl);
+    emptyEl.style.display = '';
+    progressEl.textContent = '';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  const total = _reviewCards.length;
+  progressEl.textContent = `残り ${total - _reviewIdx} / ${total} 枚`;
+
+  if (_reviewIdx >= total) {
+    area.innerHTML = '<div class="empty">復習完了！お疲れ様でした 🎉</div>';
+    return;
+  }
+
+  const card = _reviewCards[_reviewIdx];
+  area.innerHTML = `
+    <div class="flashcard-item">
+      <div class="flashcard-front">${esc(card.front)}</div>
+      <div class="flashcard-back" id="rv-back">${esc(card.back)}</div>
+      <div class="flashcard-example" id="rv-example">${esc(card.example || '')}</div>
+      <div class="flashcard-meta">次回: ${card.next_review} | 間隔: ${card.interval}日 | 正解連続: ${card.repetitions}</div>
+      <div id="rv-reveal-row" style="margin-top:10px">
+        <button class="btn btn-ghost btn-sm" onclick="revealCard()">答えを見る</button>
+      </div>
+      <div id="rv-rate-row" class="review-rate-btns" style="display:none">
+        <button class="review-rate-btn btn-forget" onclick="rateCard(0)">😵 忘れた</button>
+        <button class="review-rate-btn btn-hard" onclick="rateCard(1)">😅 難しい</button>
+        <button class="review-rate-btn btn-perfect" onclick="rateCard(2)">😊 完璧</button>
+      </div>
+    </div>`;
+}
+
+function revealCard() {
+  document.getElementById('rv-back').classList.add('show');
+  const ex = document.getElementById('rv-example');
+  if (ex && ex.textContent) ex.classList.add('show');
+  document.getElementById('rv-reveal-row').style.display = 'none';
+  document.getElementById('rv-rate-row').style.display = '';
+}
+
+async function rateCard(quality) {
+  if (_reviewIdx >= _reviewCards.length) return;
+  const card = _reviewCards[_reviewIdx];
+  try {
+    await api('PATCH', `/api/flashcards/${card.id}/review`, {quality});
+    _reviewIdx++;
+    renderReviewCard();
+  } catch(e) {
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
+async function loadAllCards() {
+  const data = await api('GET', '/api/flashcards');
+  const cards = data.cards || [];
+  const listEl = document.getElementById('all-cards-list');
+  if (!cards.length) {
+    listEl.innerHTML = '<div class="empty">フラッシュカードがありません</div>';
+    return;
+  }
+  listEl.innerHTML = cards.map(c => `
+    <div class="flashcard-item">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1">
+          <div class="flashcard-front">${esc(c.front)}</div>
+          <div style="font-size:13px;color:#aaa;margin-top:4px">${esc(c.back)}</div>
+          ${c.example ? `<div style="font-size:12px;color:#69f0ae;font-style:italic;margin-top:3px">${esc(c.example)}</div>` : ''}
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteCard('${esc(c.id)}')">🗑</button>
+      </div>
+      <div class="flashcard-meta">次回: ${c.next_review} | 間隔: ${c.interval}日 | ミス: ${c.lapses} | 出典: ${esc(c.source)}</div>
+    </div>`).join('');
+}
+
+async function deleteCard(cardId) {
+  if (!confirm('このカードを削除しますか？')) return;
+  try {
+    await api('DELETE', `/api/flashcards/${cardId}`);
+    showStatus('削除しました', 'success', 2000);
+    loadAllCards();
+  } catch(e) {
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
 // ── 初期化 ────────────────────────────────────────────────────────────
 _activePane = 'home';
 updateHomeBadges();
@@ -2710,6 +3594,14 @@ setInterval(() => {
   <button class="nav-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
     <span class="nav-icon">📊</span>
     <span class="nav-label">ダッシュボード</span>
+  </button>
+  <button class="nav-btn" data-tab="diary" onclick="switchTab('diary')">
+    <span class="nav-icon">📔</span>
+    <span class="nav-label">日記</span>
+  </button>
+  <button class="nav-btn" data-tab="lang" onclick="switchTab('lang')">
+    <span class="nav-icon">📚</span>
+    <span class="nav-label">語学</span>
   </button>
   <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">
     <span class="nav-icon">💬</span>

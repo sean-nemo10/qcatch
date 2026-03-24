@@ -10,7 +10,16 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from core.models import AppData, Category, RecurringRule, Task
+from core.models import (
+    AppData,
+    BlogData,
+    Category,
+    DiaryData,
+    DiaryEntry,
+    FlashDeck,
+    RecurringRule,
+    Task,
+)
 
 # パス解決（PyInstaller .exe / 通常実行 両対応）
 if getattr(sys, "frozen", False):
@@ -20,6 +29,9 @@ else:
 
 DATA_DIR = BASE_DIR / "data"
 TASKS_FILE = DATA_DIR / "tasks.json"
+DIARY_FILE = DATA_DIR / "diary.json"
+BLOG_FILE = DATA_DIR / "blog.json"
+FLASHCARD_FILE = DATA_DIR / "flashcards.json"
 INBOX_FILE = DATA_DIR / "inbox.txt"
 SORTED_FILE = DATA_DIR / "sorted_tasks.md"
 DONE_FILE = DATA_DIR / "done.txt"
@@ -60,6 +72,110 @@ def save_data(data: AppData) -> None:
 def save_data_bg(data: AppData) -> None:
     """バックグラウンドスレッドで保存（HTTPレスポンスをブロックしない）。"""
     threading.Thread(target=save_data, args=(data,), daemon=True).start()
+
+
+# ── 日記 読み書き ─────────────────────────────────────────────────────────────
+
+
+def load_diary() -> DiaryData:
+    """diary.json を読み込む。存在しなければ空の DiaryData を返す。"""
+    if not DIARY_FILE.exists():
+        return DiaryData()
+    try:
+        return DiaryData.model_validate_json(DIARY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return DiaryData()
+
+
+_diary_lock = threading.Lock()
+
+
+def save_diary(data: DiaryData) -> None:
+    """DiaryData を diary.json にアトミック書き込み。"""
+    with _diary_lock:
+        tmp = DIARY_FILE.with_suffix(".diary.tmp")
+        tmp.write_text(data.model_dump_json(indent=2), encoding="utf-8")
+        tmp.replace(DIARY_FILE)
+
+
+def save_diary_bg(data: DiaryData) -> None:
+    threading.Thread(target=save_diary, args=(data,), daemon=True).start()
+
+
+# ── ブログ 読み書き ───────────────────────────────────────────────────────────
+
+
+def load_blog() -> BlogData:
+    """blog.json を読み込む。存在しなければ空の BlogData を返す。"""
+    if not BLOG_FILE.exists():
+        return BlogData()
+    try:
+        return BlogData.model_validate_json(BLOG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return BlogData()
+
+
+_blog_lock = threading.Lock()
+
+
+def save_blog(data: BlogData) -> None:
+    with _blog_lock:
+        tmp = BLOG_FILE.with_suffix(".blog.tmp")
+        tmp.write_text(data.model_dump_json(indent=2), encoding="utf-8")
+        tmp.replace(BLOG_FILE)
+
+
+def save_blog_bg(data: BlogData) -> None:
+    threading.Thread(target=save_blog, args=(data,), daemon=True).start()
+
+
+# ── フラッシュカード 読み書き ──────────────────────────────────────────────────
+
+
+def load_flashcards() -> FlashDeck:
+    if not FLASHCARD_FILE.exists():
+        return FlashDeck()
+    try:
+        return FlashDeck.model_validate_json(FLASHCARD_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return FlashDeck()
+
+
+_flash_lock = threading.Lock()
+
+
+def save_flashcards(deck: FlashDeck) -> None:
+    with _flash_lock:
+        tmp = FLASHCARD_FILE.with_suffix(".flash.tmp")
+        tmp.write_text(deck.model_dump_json(indent=2), encoding="utf-8")
+        tmp.replace(FLASHCARD_FILE)
+
+
+def save_flashcards_bg(deck: FlashDeck) -> None:
+    threading.Thread(target=save_flashcards, args=(deck,), daemon=True).start()
+
+
+def sm2_update(card, quality: int):
+    """SM-2 アルゴリズム（quality: 0=忘れた, 1=難しい, 2=完璧）"""
+    from datetime import timedelta
+
+    q = [1, 3, 5][max(0, min(2, quality))]
+    if q < 3:
+        card.interval = 1
+        card.repetitions = 0
+        card.lapses += 1
+    else:
+        if card.repetitions == 0:
+            card.interval = 1
+        elif card.repetitions == 1:
+            card.interval = 6
+        else:
+            card.interval = round(card.interval * card.ease)
+        card.repetitions += 1
+        card.ease = max(1.3, card.ease + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+    next_date = (date.today() + timedelta(days=card.interval)).isoformat()
+    card.next_review = next_date
+    return card
 
 
 # ── inbox.txt 吸い上げ ────────────────────────────────────────────────────────

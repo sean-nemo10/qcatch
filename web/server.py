@@ -19,20 +19,30 @@ from pydantic import BaseModel
 
 from core.models import (
     AppData,
+    BlogPost,
     Category,
     ChecklistItem,
     ChecklistTemplate,
+    DiaryEntry,
+    FlashCard,
     Importance,
     RecurringRule,
     Task,
 )
 from core import storage
 from core.storage import (
+    load_blog,
     load_data,
+    load_diary,
+    load_flashcards,
     promote_longterm_tasks,
+    save_blog_bg,
     save_data,
     save_data_bg,
+    save_diary_bg,
+    save_flashcards_bg,
     siphon_inbox,
+    sm2_update,
 )
 
 # パス解決
@@ -745,6 +755,400 @@ def _save_config(cfg: dict) -> None:
 
     _CONFIG_FILE.write_text(
         json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+# ── /api/diary ────────────────────────────────────────────────────────────────
+
+
+class DiaryEntryIn(BaseModel):
+    date_str: str
+    content: str
+    referenced_task_ids: list[str] = []
+
+
+@app.get("/api/diary")
+def list_diaries():
+    """日記がある日付一覧を返す（降順）。"""
+    diary = load_diary()
+    return {"dates": sorted(diary.entries.keys(), reverse=True)}
+
+
+@app.get("/api/diary/{date_str}")
+def get_diary(date_str: str):
+    """指定日の日記を返す。"""
+    diary = load_diary()
+    if date_str not in diary.entries:
+        raise HTTPException(404, "日記が見つかりません")
+    return diary.entries[date_str].model_dump()
+
+
+@app.post("/api/diary")
+def save_diary_entry(body: DiaryEntryIn):
+    """日記を保存・更新する。"""
+    from datetime import datetime as dt
+
+    diary = load_diary()
+    now = dt.now()
+    if body.date_str in diary.entries:
+        entry = diary.entries[body.date_str]
+        entry.content = body.content
+        entry.referenced_task_ids = body.referenced_task_ids
+        entry.updated_at = now
+    else:
+        entry = DiaryEntry(
+            date_str=body.date_str,
+            content=body.content,
+            referenced_task_ids=body.referenced_task_ids,
+            created_at=now,
+            updated_at=now,
+        )
+        diary.entries[body.date_str] = entry
+    save_diary_bg(diary)
+    return entry.model_dump()
+
+
+@app.post("/api/diary/generate/{date_str}")
+def generate_diary_draft(date_str: str, body: ChatIn):
+    """指定日の完了タスクをもとに日記の下書きをSSEストリーミングで生成する。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+
+    # 該当日の完了タスクを取得
+    completed = [
+        t.model_dump()
+        for t in _app_data.tasks
+        if t.status == "done"
+        and t.completed_at
+        and t.completed_at.strftime("%Y-%m-%d") == date_str
+    ]
+
+    def generate():
+        try:
+            for event in chat_mod.diary_draft_stream(completed, date_str, api_key):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── /api/writing/suggest ─────────────────────────────────────────────────────
+
+
+class WritingSuggestIn(BaseModel):
+    content: str
+    mode: str  # "diary" | "blog"
+    extra: dict = {}
+    api_key: Optional[str] = None
+
+
+@app.post("/api/writing/suggest")
+def writing_suggest_endpoint(body: WritingSuggestIn):
+    """ユーザーが書いた文章に対してAIが提案をSSEストリーミングで返す。
+    日記モードで content が空の場合、その日の完了タスクから書くべき話題を提案する。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+
+    extra = dict(body.extra)
+    # 日記モードで本文が空 → その日の完了タスクを extra に注入
+    if body.mode == "diary" and not body.content.strip():
+        date_str = extra.get("date", "")
+        completed = [
+            {"text": t.text, "category": t.category, "importance": t.importance}
+            for t in _app_data.tasks
+            if t.status == "done"
+            and t.completed_at
+            and t.completed_at.strftime("%Y-%m-%d") == date_str
+        ]
+        extra["tasks"] = completed
+
+    def generate():
+        try:
+            for event in chat_mod.writing_suggest_stream(
+                body.content, body.mode, extra, api_key
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── /api/blog ─────────────────────────────────────────────────────────────────
+
+
+class BlogPostIn(BaseModel):
+    title: str
+    tags: list[str] = []
+    content: str
+
+
+class BlogPostPatch(BaseModel):
+    title: Optional[str] = None
+    tags: Optional[list[str]] = None
+    content: Optional[str] = None
+
+
+@app.get("/api/blog")
+def list_blog_posts():
+    """ブログ記事一覧（降順）。本文は先頭100文字のみ。"""
+    blog = load_blog()
+    return {
+        "posts": [
+            {**p.model_dump(exclude={"content"}), "preview": p.content[:100]}
+            for p in sorted(blog.posts, key=lambda p: p.updated_at, reverse=True)
+        ]
+    }
+
+
+@app.get("/api/blog/{post_id}")
+def get_blog_post(post_id: str):
+    blog = load_blog()
+    post = next((p for p in blog.posts if p.id == post_id), None)
+    if not post:
+        raise HTTPException(404, "ブログ記事が見つかりません")
+    return post.model_dump()
+
+
+@app.post("/api/blog", status_code=201)
+def create_blog_post(body: BlogPostIn):
+    blog = load_blog()
+    post = BlogPost(title=body.title, tags=body.tags, content=body.content)
+    blog.posts.append(post)
+    save_blog_bg(blog)
+    return post.model_dump()
+
+
+@app.patch("/api/blog/{post_id}")
+def update_blog_post(post_id: str, body: BlogPostPatch):
+    from datetime import datetime as dt
+
+    blog = load_blog()
+    post = next((p for p in blog.posts if p.id == post_id), None)
+    if not post:
+        raise HTTPException(404, "ブログ記事が見つかりません")
+    if body.title is not None:
+        post.title = body.title
+    if body.tags is not None:
+        post.tags = body.tags
+    if body.content is not None:
+        post.content = body.content
+    post.updated_at = dt.now()
+    save_blog_bg(blog)
+    return post.model_dump()
+
+
+@app.delete("/api/blog/{post_id}", status_code=204)
+def delete_blog_post(post_id: str):
+    blog = load_blog()
+    idx = next((i for i, p in enumerate(blog.posts) if p.id == post_id), None)
+    if idx is None:
+        raise HTTPException(404, "ブログ記事が見つかりません")
+    blog.posts.pop(idx)
+    save_blog_bg(blog)
+
+
+# ── /api/flashcards ───────────────────────────────────────────────────────────
+
+
+class FlashCardIn(BaseModel):
+    front: str
+    back: str
+    example: str = ""
+    source: str = "manual"
+    source_ref: str = ""
+
+
+class FlashCardReview(BaseModel):
+    quality: int  # 0=忘れた, 1=難しい, 2=完璧
+
+
+@app.get("/api/flashcards")
+def list_flashcards():
+    deck = load_flashcards()
+    return {"cards": [c.model_dump() for c in deck.cards]}
+
+
+@app.get("/api/flashcards/due")
+def due_flashcards():
+    """今日復習すべきカードを返す。"""
+    from datetime import date
+
+    today = date.today().isoformat()
+    deck = load_flashcards()
+    due = [c for c in deck.cards if c.next_review <= today]
+    return {"cards": [c.model_dump() for c in due]}
+
+
+@app.post("/api/flashcards", status_code=201)
+def create_flashcard(body: FlashCardIn):
+    deck = load_flashcards()
+    card = FlashCard(
+        front=body.front,
+        back=body.back,
+        example=body.example,
+        source=body.source,
+        source_ref=body.source_ref,
+    )
+    deck.cards.append(card)
+    save_flashcards_bg(deck)
+    return card.model_dump()
+
+
+@app.patch("/api/flashcards/{card_id}/review")
+def review_flashcard(card_id: str, body: FlashCardReview):
+    deck = load_flashcards()
+    card = next((c for c in deck.cards if c.id == card_id), None)
+    if not card:
+        raise HTTPException(404, "カードが見つかりません")
+    sm2_update(card, body.quality)
+    save_flashcards_bg(deck)
+    return card.model_dump()
+
+
+@app.delete("/api/flashcards/{card_id}", status_code=204)
+def delete_flashcard(card_id: str):
+    deck = load_flashcards()
+    idx = next((i for i, c in enumerate(deck.cards) if c.id == card_id), None)
+    if idx is None:
+        raise HTTPException(404, "カードが見つかりません")
+    deck.cards.pop(idx)
+    save_flashcards_bg(deck)
+
+
+# ── /api/lang ─────────────────────────────────────────────────────────────────
+
+
+class LangPracticeIn(BaseModel):
+    date_str: str
+    api_key: Optional[str] = None
+
+
+class LangCorrectIn(BaseModel):
+    user_english: str
+    context: str = ""
+    api_key: Optional[str] = None
+
+
+class LangDiscussIn(BaseModel):
+    practice_text: str
+    user_answer: str
+    correction: str
+    follow_up: str
+    history: list = []
+    api_key: Optional[str] = None
+
+
+@app.post("/api/lang/practice")
+def lang_practice_endpoint(body: LangPracticeIn):
+    """今日のタスク・日記を素材に英語練習問題をSSEストリーミングで生成する。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+
+    tasks = [
+        {"text": t.text, "category": t.category}
+        for t in _app_data.tasks
+        if t.status == "done"
+        and t.completed_at
+        and t.completed_at.strftime("%Y-%m-%d") == body.date_str
+    ]
+
+    diary = load_diary()
+    diary_content = ""
+    if body.date_str in diary.entries:
+        diary_content = diary.entries[body.date_str].content
+
+    def generate():
+        try:
+            for event in chat_mod.lang_practice_stream(
+                tasks, diary_content, body.date_str, api_key
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/lang/correct")
+def lang_correct_endpoint(body: LangCorrectIn):
+    """ユーザーの英文を添削・フレーズ提案するSSEストリーミング。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+
+    def generate():
+        try:
+            for event in chat_mod.lang_correct_stream(
+                body.user_english, body.context, api_key
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/lang/discuss")
+def lang_discuss_endpoint(body: LangDiscussIn):
+    """添削後のフォローアップ議論をSSEストリーミングで返す。"""
+    import json
+    from core import chat as chat_mod
+
+    api_key = body.api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+
+    def generate():
+        try:
+            for event in chat_mod.lang_discuss_stream(
+                body.practice_text,
+                body.user_answer,
+                body.correction,
+                body.follow_up,
+                body.history,
+                api_key,
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
