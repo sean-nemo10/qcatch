@@ -42,6 +42,7 @@ from core.storage import (
     save_data,
     save_data_bg,
     save_diary_bg,
+    save_flashcards,
     save_flashcards_bg,
     siphon_inbox,
     sm2_update,
@@ -1073,7 +1074,7 @@ def create_flashcard(body: FlashCardIn):
         source_ref=body.source_ref,
     )
     deck.cards.append(card)
-    save_flashcards_bg(deck)
+    save_flashcards(deck)
     return card.model_dump()
 
 

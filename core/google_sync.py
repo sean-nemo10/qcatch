@@ -254,7 +254,6 @@ def _get_tasklist_map() -> dict:
     """qcatch_config.json から google_tasklist_map を読む。"""
     try:
         import json
-        from pathlib import Path
 
         cfg_file = BASE_DIR / "qcatch_config.json"
         if cfg_file.exists():
@@ -265,24 +264,99 @@ def _get_tasklist_map() -> dict:
     return {}
 
 
+def _save_tasklist_map(mapping: dict) -> None:
+    """google_tasklist_map を qcatch_config.json に保存（AI マッチ結果のキャッシュ）。"""
+    import json
+
+    cfg_file = BASE_DIR / "qcatch_config.json"
+    cfg: dict = {}
+    if cfg_file.exists():
+        try:
+            cfg = json.loads(cfg_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    cfg["google_tasklist_map"] = mapping
+    cfg_file.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _ai_match_tasklist(category: str, list_titles: list[str]) -> str | None:
+    """AI でカテゴリ名に最も近い既存リスト名を返す。マッチなしなら None。"""
+    import os
+
+    prompt = (
+        f"Google Tasks のリスト一覧: {list_titles}\n\n"
+        f"qcatch のカテゴリ「{category}」に意味が最も近いリストを1つ選んでください。\n"
+        "意味が近いものがなければ null と答えてください。\n"
+        "リスト名のみを回答してください（説明不要）。"
+    )
+
+    # Gemini 優先
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            from google import genai
+
+            client = genai.Client(api_key=api_key)
+            resp = client.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
+            answer = resp.text.strip().strip('"').strip("'")
+            if answer.lower() != "null" and answer in list_titles:
+                return answer
+        except Exception:
+            pass
+
+    # Anthropic フォールバック
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
+        try:
+            import anthropic
+
+            client = anthropic.Anthropic(api_key=api_key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=50,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            answer = msg.content[0].text.strip().strip('"').strip("'")
+            if answer.lower() != "null" and answer in list_titles:
+                return answer
+        except Exception:
+            pass
+
+    return None
+
+
 def _get_or_create_tasklist(service, category: str | None) -> str:
-    # マッピングが設定されていれば対応リスト名を使う
     mapping = _get_tasklist_map()
-    mapped_title = mapping.get(category or "") or mapping.get("") or None
+    key = category or ""
 
     lists = service.tasklists().list(maxResults=50).execute().get("items", [])
+    title_to_id = {tl["title"]: tl["id"] for tl in lists}
 
-    # マッピング先リストを探す
-    if mapped_title:
-        for tl in lists:
-            if tl["title"] == mapped_title:
-                return tl["id"]
+    # 1. 手動マッピングが設定されていれば最優先
+    mapped_title = mapping.get(key) or mapping.get("") or None
+    if mapped_title and mapped_title in title_to_id:
+        return title_to_id[mapped_title]
 
-    # マッピングなし → カテゴリ名のリストを探す or 新規作成
+    # 2. 既に AI マッチ済みのキャッシュがあればそれを使う
+    #    （mapping に category キーがあれば既キャッシュ）
+    if key in mapping and mapping[key] in title_to_id:
+        return title_to_id[mapping[key]]
+
+    # 3. AI でマッチング
+    if category and title_to_id:
+        matched = _ai_match_tasklist(category, list(title_to_id.keys()))
+        if matched:
+            # キャッシュとして保存
+            mapping[key] = matched
+            _save_tasklist_map(mapping)
+            return title_to_id[matched]
+
+    # 4. マッチなし → 新規作成
     title = category or "qcatch"
-    for tl in lists:
-        if tl["title"] == title:
-            return tl["id"]
+    if title in title_to_id:
+        return title_to_id[title]
     new_list = service.tasklists().insert(body={"title": title}).execute()
     return new_list["id"]
 

@@ -1,21 +1,25 @@
-"""core/storage.py — tasks.json の読み書き・データ移行・定期タスク処理"""
+"""core/storage.py — SQLite バックエンド読み書き・データ移行・定期タスク処理"""
 
 from __future__ import annotations
 
 import json
 import re
+import sqlite3
 import sys
 import threading
-from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from core.models import (
     AppData,
     BlogData,
+    BlogPost,
     Category,
+    ChecklistItem,
+    ChecklistTemplate,
     DiaryData,
     DiaryEntry,
+    FlashCard,
     FlashDeck,
     RecurringRule,
     Task,
@@ -35,38 +39,251 @@ FLASHCARD_FILE = DATA_DIR / "flashcards.json"
 INBOX_FILE = DATA_DIR / "inbox.txt"
 SORTED_FILE = DATA_DIR / "sorted_tasks.md"
 DONE_FILE = DATA_DIR / "done.txt"
+DB_FILE = DATA_DIR / "qcatch.db"
 
 CATEGORIES: list[Category] = ["仕事", "プライベート", "買い物", "学習", "その他"]
 
 DATA_DIR.mkdir(exist_ok=True)
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    text TEXT NOT NULL,
+    status TEXT NOT NULL,
+    category TEXT,
+    tags TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    completed_at TEXT,
+    due_date TEXT,
+    importance TEXT NOT NULL DEFAULT 'medium',
+    google_event_id TEXT,
+    google_task_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS checklists (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    due_date TEXT,
+    items TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS recurring_rules (
+    id TEXT PRIMARY KEY,
+    text TEXT NOT NULL,
+    category TEXT,
+    frequency TEXT NOT NULL,
+    days_of_week TEXT NOT NULL DEFAULT '[]',
+    day_of_month INTEGER,
+    last_generated_date TEXT
+);
+
+CREATE TABLE IF NOT EXISTS ordered_lists (
+    list_name TEXT PRIMARY KEY,
+    order_json TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS diary_entries (
+    date_str TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    referenced_task_ids TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    tags TEXT NOT NULL DEFAULT '[]',
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS flashcards (
+    id TEXT PRIMARY KEY,
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+    example TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT '',
+    source_ref TEXT NOT NULL DEFAULT '',
+    interval INTEGER NOT NULL DEFAULT 1,
+    ease REAL NOT NULL DEFAULT 2.5,
+    repetitions INTEGER NOT NULL DEFAULT 0,
+    lapses INTEGER NOT NULL DEFAULT 0,
+    next_review TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS archived_tasks (
+    id TEXT PRIMARY KEY,
+    task_json TEXT NOT NULL,
+    archived_year INTEGER NOT NULL,
+    completed_at TEXT NOT NULL
+);
+"""
+
+
+def _get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(str(DB_FILE), check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    conn = _get_conn()
+    with conn:
+        conn.executescript(_SCHEMA)
+    conn.close()
+
+
+# ── Row conversion helpers ────────────────────────────────────────────────────
+
+
+def _task_to_row(t: Task) -> tuple:
+    return (
+        t.id,
+        t.text,
+        t.status,
+        t.category,
+        json.dumps(t.tags),
+        t.created_at.isoformat() if t.created_at else None,
+        t.completed_at.isoformat() if t.completed_at else None,
+        t.due_date.isoformat() if t.due_date else None,
+        t.importance,
+        t.google_event_id,
+        t.google_task_id,
+    )
+
+
+def _row_to_task(r: sqlite3.Row) -> Task:
+    return Task(
+        id=r["id"],
+        text=r["text"],
+        status=r["status"],
+        category=r["category"],
+        tags=json.loads(r["tags"]),
+        created_at=datetime.fromisoformat(r["created_at"]) if r["created_at"] else None,
+        completed_at=(
+            datetime.fromisoformat(r["completed_at"]) if r["completed_at"] else None
+        ),
+        due_date=datetime.fromisoformat(r["due_date"]) if r["due_date"] else None,
+        importance=r["importance"],
+        google_event_id=r["google_event_id"],
+        google_task_id=r["google_task_id"],
+    )
+
+
+def _checklist_to_row(c: ChecklistTemplate) -> tuple:
+    return (
+        c.id,
+        c.name,
+        c.due_date.isoformat() if c.due_date else None,
+        json.dumps([item.model_dump() for item in c.items]),
+    )
+
+
+def _row_to_checklist(r: sqlite3.Row) -> ChecklistTemplate:
+    raw_items = json.loads(r["items"])
+    return ChecklistTemplate(
+        id=r["id"],
+        name=r["name"],
+        due_date=datetime.fromisoformat(r["due_date"]) if r["due_date"] else None,
+        items=[ChecklistItem(**item) for item in raw_items],
+    )
+
+
+def _recurring_to_row(rec: RecurringRule) -> tuple:
+    return (
+        rec.id,
+        rec.text,
+        rec.category,
+        rec.frequency,
+        json.dumps(rec.days_of_week),
+        rec.day_of_month,
+        rec.last_generated_date,
+    )
+
+
+def _row_to_recurring(r: sqlite3.Row) -> RecurringRule:
+    return RecurringRule(
+        id=r["id"],
+        text=r["text"],
+        category=r["category"],
+        frequency=r["frequency"],
+        days_of_week=json.loads(r["days_of_week"]),
+        day_of_month=r["day_of_month"],
+        last_generated_date=r["last_generated_date"],
+    )
 
 
 # ── 読み書き ──────────────────────────────────────────────────────────────────
 
 
 def load_data() -> AppData:
-    """tasks.json を読み込む。存在しなければ空の AppData を返す。"""
-    if not TASKS_FILE.exists():
-        return AppData()
+    """SQLite から AppData を読み込む。"""
+    conn = _get_conn()
     try:
-        raw = TASKS_FILE.read_text(encoding="utf-8")
-        return AppData.model_validate_json(raw)
-    except Exception:
-        return AppData()
+        tasks = [
+            _row_to_task(r) for r in conn.execute("SELECT * FROM tasks").fetchall()
+        ]
+        checklists = [
+            _row_to_checklist(r)
+            for r in conn.execute("SELECT * FROM checklists").fetchall()
+        ]
+        recurring = [
+            _row_to_recurring(r)
+            for r in conn.execute("SELECT * FROM recurring_rules").fetchall()
+        ]
+        dash_row = conn.execute(
+            "SELECT order_json FROM ordered_lists WHERE list_name='dashboard'"
+        ).fetchone()
+        tasks_row = conn.execute(
+            "SELECT order_json FROM ordered_lists WHERE list_name='tasks'"
+        ).fetchone()
+        return AppData(
+            tasks=tasks,
+            checklists=checklists,
+            recurring=recurring,
+            dashboard_order=json.loads(dash_row["order_json"]) if dash_row else [],
+            tasks_order=json.loads(tasks_row["order_json"]) if tasks_row else [],
+        )
+    finally:
+        conn.close()
 
 
 _save_lock = threading.Lock()
 
 
 def save_data(data: AppData) -> None:
-    """AppData を tasks.json にアトミック書き込み（tmp → rename）。"""
+    """AppData を SQLite にトランザクション書き込み。"""
     with _save_lock:
-        tmp = TASKS_FILE.with_suffix(".tmp")
-        tmp.write_text(
-            data.model_dump_json(indent=2, exclude_none=False),
-            encoding="utf-8",
-        )
-        tmp.replace(TASKS_FILE)
+        conn = _get_conn()
+        with conn:
+            conn.execute("DELETE FROM tasks")
+            conn.executemany(
+                "INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                [_task_to_row(t) for t in data.tasks],
+            )
+            conn.execute("DELETE FROM checklists")
+            conn.executemany(
+                "INSERT INTO checklists VALUES (?,?,?,?)",
+                [_checklist_to_row(c) for c in data.checklists],
+            )
+            conn.execute("DELETE FROM recurring_rules")
+            conn.executemany(
+                "INSERT INTO recurring_rules VALUES (?,?,?,?,?,?,?)",
+                [_recurring_to_row(r) for r in data.recurring],
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO ordered_lists VALUES ('dashboard', ?)",
+                (json.dumps(data.dashboard_order),),
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO ordered_lists VALUES ('tasks', ?)",
+                (json.dumps(data.tasks_order),),
+            )
+        conn.close()
 
 
 def save_data_bg(data: AppData) -> None:
@@ -78,24 +295,48 @@ def save_data_bg(data: AppData) -> None:
 
 
 def load_diary() -> DiaryData:
-    """diary.json を読み込む。存在しなければ空の DiaryData を返す。"""
-    if not DIARY_FILE.exists():
-        return DiaryData()
+    """SQLite から DiaryData を読み込む。"""
+    conn = _get_conn()
     try:
-        return DiaryData.model_validate_json(DIARY_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return DiaryData()
+        rows = conn.execute("SELECT * FROM diary_entries").fetchall()
+        entries = {}
+        for r in rows:
+            e = DiaryEntry(
+                date_str=r["date_str"],
+                content=r["content"],
+                referenced_task_ids=json.loads(r["referenced_task_ids"]),
+                created_at=datetime.fromisoformat(r["created_at"]),
+                updated_at=datetime.fromisoformat(r["updated_at"]),
+            )
+            entries[e.date_str] = e
+        return DiaryData(entries=entries)
+    finally:
+        conn.close()
 
 
 _diary_lock = threading.Lock()
 
 
 def save_diary(data: DiaryData) -> None:
-    """DiaryData を diary.json にアトミック書き込み。"""
+    """DiaryData を SQLite に書き込む。"""
     with _diary_lock:
-        tmp = DIARY_FILE.with_suffix(".diary.tmp")
-        tmp.write_text(data.model_dump_json(indent=2), encoding="utf-8")
-        tmp.replace(DIARY_FILE)
+        conn = _get_conn()
+        with conn:
+            conn.execute("DELETE FROM diary_entries")
+            conn.executemany(
+                "INSERT INTO diary_entries VALUES (?,?,?,?,?)",
+                [
+                    (
+                        e.date_str,
+                        e.content,
+                        json.dumps(e.referenced_task_ids),
+                        e.created_at.isoformat(),
+                        e.updated_at.isoformat(),
+                    )
+                    for e in data.entries.values()
+                ],
+            )
+        conn.close()
 
 
 def save_diary_bg(data: DiaryData) -> None:
@@ -106,13 +347,24 @@ def save_diary_bg(data: DiaryData) -> None:
 
 
 def load_blog() -> BlogData:
-    """blog.json を読み込む。存在しなければ空の BlogData を返す。"""
-    if not BLOG_FILE.exists():
-        return BlogData()
+    """SQLite から BlogData を読み込む。"""
+    conn = _get_conn()
     try:
-        return BlogData.model_validate_json(BLOG_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return BlogData()
+        rows = conn.execute("SELECT * FROM blog_posts").fetchall()
+        posts = [
+            BlogPost(
+                id=r["id"],
+                title=r["title"],
+                tags=json.loads(r["tags"]),
+                content=r["content"],
+                created_at=datetime.fromisoformat(r["created_at"]),
+                updated_at=datetime.fromisoformat(r["updated_at"]),
+            )
+            for r in rows
+        ]
+        return BlogData(posts=posts)
+    finally:
+        conn.close()
 
 
 _blog_lock = threading.Lock()
@@ -120,9 +372,24 @@ _blog_lock = threading.Lock()
 
 def save_blog(data: BlogData) -> None:
     with _blog_lock:
-        tmp = BLOG_FILE.with_suffix(".blog.tmp")
-        tmp.write_text(data.model_dump_json(indent=2), encoding="utf-8")
-        tmp.replace(BLOG_FILE)
+        conn = _get_conn()
+        with conn:
+            conn.execute("DELETE FROM blog_posts")
+            conn.executemany(
+                "INSERT INTO blog_posts VALUES (?,?,?,?,?,?)",
+                [
+                    (
+                        p.id,
+                        p.title,
+                        json.dumps(p.tags),
+                        p.content,
+                        p.created_at.isoformat(),
+                        p.updated_at.isoformat(),
+                    )
+                    for p in data.posts
+                ],
+            )
+        conn.close()
 
 
 def save_blog_bg(data: BlogData) -> None:
@@ -133,12 +400,29 @@ def save_blog_bg(data: BlogData) -> None:
 
 
 def load_flashcards() -> FlashDeck:
-    if not FLASHCARD_FILE.exists():
-        return FlashDeck()
+    conn = _get_conn()
     try:
-        return FlashDeck.model_validate_json(FLASHCARD_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return FlashDeck()
+        rows = conn.execute("SELECT * FROM flashcards").fetchall()
+        cards = [
+            FlashCard(
+                id=r["id"],
+                front=r["front"],
+                back=r["back"],
+                example=r["example"],
+                source=r["source"],
+                source_ref=r["source_ref"],
+                interval=r["interval"],
+                ease=r["ease"],
+                repetitions=r["repetitions"],
+                lapses=r["lapses"],
+                next_review=r["next_review"],
+                created_at=datetime.fromisoformat(r["created_at"]),
+            )
+            for r in rows
+        ]
+        return FlashDeck(cards=cards)
+    finally:
+        conn.close()
 
 
 _flash_lock = threading.Lock()
@@ -146,9 +430,30 @@ _flash_lock = threading.Lock()
 
 def save_flashcards(deck: FlashDeck) -> None:
     with _flash_lock:
-        tmp = FLASHCARD_FILE.with_suffix(".flash.tmp")
-        tmp.write_text(deck.model_dump_json(indent=2), encoding="utf-8")
-        tmp.replace(FLASHCARD_FILE)
+        conn = _get_conn()
+        with conn:
+            conn.execute("DELETE FROM flashcards")
+            conn.executemany(
+                "INSERT INTO flashcards VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                [
+                    (
+                        c.id,
+                        c.front,
+                        c.back,
+                        c.example,
+                        c.source,
+                        c.source_ref,
+                        c.interval,
+                        c.ease,
+                        c.repetitions,
+                        c.lapses,
+                        c.next_review,
+                        c.created_at.isoformat(),
+                    )
+                    for c in deck.cards
+                ],
+            )
+        conn.close()
 
 
 def save_flashcards_bg(deck: FlashDeck) -> None:
@@ -157,8 +462,6 @@ def save_flashcards_bg(deck: FlashDeck) -> None:
 
 def sm2_update(card, quality: int):
     """SM-2 アルゴリズム（quality: 0=忘れた, 1=難しい, 2=完璧）"""
-    from datetime import timedelta
-
     q = [1, 3, 5][max(0, min(2, quality))]
     if q < 3:
         card.interval = 1
@@ -208,7 +511,7 @@ def _parse_inbox_line(line: str) -> Task | None:
 
 def siphon_inbox(data: AppData) -> int:
     """
-    inbox.txt の内容を tasks.json の inbox タスクとして取り込む。
+    inbox.txt の内容を tasks の inbox タスクとして取り込む。
     取り込み後 inbox.txt をクリアする。
     戻り値: 追加されたタスク数。
     """
@@ -249,7 +552,7 @@ def promote_longterm_tasks(data: AppData, days_threshold: int = 7) -> int:
 def migrate_from_existing(data: AppData) -> int:
     """
     sorted_tasks.md と done.txt から既存データを移行する。
-    tasks.json が空のときだけ実行する（初回移行）。
+    tasks が空のときだけ実行する（初回移行）。
     戻り値: 移行されたタスク数。
     """
     if data.tasks:
@@ -367,14 +670,14 @@ def check_recurring(data: AppData) -> list[str]:
     return added_texts
 
 
-# ── アーカイブ（古い完了タスクを別ファイルへ退避） ──────────────────────────
+# ── アーカイブ（古い完了タスクを archived_tasks テーブルへ退避） ──────────────
 
 ARCHIVE_DAYS = 30
 
 
 def archive_old_done(data: AppData) -> int:
     """
-    completed_at が ARCHIVE_DAYS 日以上前の done タスクを年別アーカイブへ退避する。
+    completed_at が ARCHIVE_DAYS 日以上前の done タスクを archived_tasks へ退避する。
     戻り値: 退避したタスク数。
     """
     cutoff = datetime.now() - timedelta(days=ARCHIVE_DAYS)
@@ -386,28 +689,102 @@ def archive_old_done(data: AppData) -> int:
     if not to_archive:
         return 0
 
-    # 年別にグループ化してアーカイブファイルへ追記
-    by_year: dict[int, list] = defaultdict(list)
-    for t in to_archive:
-        by_year[t.completed_at.year].append(t)
-
-    for year, tasks in by_year.items():
-        archive_file = DATA_DIR / f"archive_{year}.json"
-        existing: list[dict] = []
-        if archive_file.exists():
-            try:
-                existing = json.loads(archive_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-        existing.extend(t.model_dump(mode="json") for t in tasks)
-        archive_file.write_text(
-            json.dumps(existing, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+    conn = _get_conn()
+    with conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO archived_tasks VALUES (?,?,?,?)",
+            [
+                (
+                    t.id,
+                    t.model_dump_json(),
+                    t.completed_at.year,
+                    t.completed_at.isoformat(),
+                )
+                for t in to_archive
+            ],
         )
+    conn.close()
 
     archive_ids = {t.id for t in to_archive}
     data.tasks = [t for t in data.tasks if t.id not in archive_ids]
     return len(to_archive)
+
+
+# ── JSON → SQLite 一回限りの移行 ─────────────────────────────────────────────
+
+
+def _migrate_json_to_sqlite() -> int:
+    """JSON ファイルから SQLite への一回限りの移行。戻り値: 移行レコード総数。"""
+    total = 0
+
+    # tasks.json → tasks, checklists, recurring_rules, ordered_lists
+    if TASKS_FILE.exists():
+        try:
+            app_data = AppData.model_validate_json(
+                TASKS_FILE.read_text(encoding="utf-8")
+            )
+            save_data(app_data)
+            total += (
+                len(app_data.tasks) + len(app_data.checklists) + len(app_data.recurring)
+            )
+        except Exception:
+            pass
+
+    # diary.json → diary_entries
+    if DIARY_FILE.exists():
+        try:
+            diary = DiaryData.model_validate_json(
+                DIARY_FILE.read_text(encoding="utf-8")
+            )
+            save_diary(diary)
+            total += len(diary.entries)
+        except Exception:
+            pass
+
+    # blog.json → blog_posts
+    if BLOG_FILE.exists():
+        try:
+            blog = BlogData.model_validate_json(BLOG_FILE.read_text(encoding="utf-8"))
+            save_blog(blog)
+            total += len(blog.posts)
+        except Exception:
+            pass
+
+    # flashcards.json → flashcards
+    if FLASHCARD_FILE.exists():
+        try:
+            deck = FlashDeck.model_validate_json(
+                FLASHCARD_FILE.read_text(encoding="utf-8")
+            )
+            save_flashcards(deck)
+            total += len(deck.cards)
+        except Exception:
+            pass
+
+    # archive_YYYY.json → archived_tasks
+    for archive_file in DATA_DIR.glob("archive_*.json"):
+        try:
+            records = json.loads(archive_file.read_text(encoding="utf-8"))
+            conn = _get_conn()
+            with conn:
+                for rec in records:
+                    t = Task.model_validate(rec)
+                    year = t.completed_at.year if t.completed_at else 0
+                    conn.execute(
+                        "INSERT OR IGNORE INTO archived_tasks VALUES (?,?,?,?)",
+                        (
+                            t.id,
+                            json.dumps(rec),
+                            year,
+                            t.completed_at.isoformat() if t.completed_at else "",
+                        ),
+                    )
+            conn.close()
+            total += len(records)
+        except Exception:
+            pass
+
+    return total
 
 
 # ── 起動時の初期化シーケンス ─────────────────────────────────────────────────
@@ -416,13 +793,26 @@ def archive_old_done(data: AppData) -> int:
 def initialize() -> tuple[AppData, dict[str, int]]:
     """
     サーバー起動時に呼ぶ初期化処理。
-    1. tasks.json 読み込み
-    2. 初回なら既存データ移行
-    3. inbox.txt 吸い上げ
-    4. 定期タスク チェック
+    1. DB スキーマ作成（初回のみ）
+    2. DB が空なら JSON ファイルから移行
+    3. AppData 読み込み
+    4. 初回なら既存テキストデータ移行
+    5. inbox.txt 吸い上げ
+    6. 定期タスク チェック
+    7. 古い完了タスクのアーカイブ
 
-    戻り値: (AppData, {"migrated": n, "siphoned": n, "recurring": n})
+    戻り値: (AppData, {"migrated": n, "siphoned": n, "recurring": n, "archived": n})
     """
+    init_db()
+
+    # DB が空なら JSON ファイルから移行
+    conn = _get_conn()
+    is_empty = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 0
+    conn.close()
+
+    if is_empty:
+        _migrate_json_to_sqlite()
+
     data = load_data()
 
     migrated = migrate_from_existing(data)
