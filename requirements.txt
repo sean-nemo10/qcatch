@@ -1,27 +1,28 @@
-# sort コマンド（Gemini 2.0 Flash・無料枠）★推奨
-# google-genai は TensorFlow 非依存の軽量 SDK（PyInstaller 対応）
+# Gemini API (sort / chat / AI features)
 google-genai>=1.0.0
 
-# sort コマンド（Anthropic API・有料・フォールバック）
+# Anthropic API (fallback for sort)
 anthropic>=0.40.0
 
-# sort コマンド（Ollama ローカル LLM・完全無料・オフライン）
-# Ollama アプリのインストールも別途必要: https://ollama.com
+# Ollama local LLM (fallback for sort)
 ollama>=0.4.0
 
-# sort の構造化出力
+# Structured output for sort
 pydantic>=2.0.0
 
-# toast コマンド（Windows トースト通知入力）
+# Windows toast notification input
 win11toast>=0.35
 
-# docs/generate_docs.py（PPTX 生成）
+# PPTX generation (docs/generate_docs.py)
 python-pptx>=1.0.0
 
-# Google Calendar / Tasks 連携
+# Google Calendar / Tasks integration
 google-api-python-client>=2.100.0
 google-auth-httplib2>=0.2.0
 google-auth-oauthlib>=1.2.0
 
-# qcatch.exe ビルド用
+# Background scheduler for auto-sync
+apscheduler>=3.10.0
+
+# Build qcatch.exe
 pyinstaller>=6.0.0

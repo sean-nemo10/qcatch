@@ -608,6 +608,17 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       <button id="google-logout-btn" class="btn btn-danger btn-sm" onclick="googleLogout()" style="display:none">ログアウト</button>
     </div>
     <div id="google-sync-log" style="font-size:12px;color:#888;margin-top:10px"></div>
+    <div id="google-autosync-section" style="display:none;margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label style="font-size:13px;color:#aaa">自動同期間隔:</label>
+      <select id="sync-interval" style="background:#16213e;border:1px solid #0f3460;color:#e0e0e0;border-radius:6px;padding:4px 10px;font-size:13px">
+        <option value="15">15分</option>
+        <option value="30" selected>30分</option>
+        <option value="60">1時間</option>
+        <option value="180">3時間</option>
+        <option value="0">無効</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="saveSyncInterval()">保存</button>
+    </div>
     <!-- タスクリスト対応表 -->
     <div id="google-tasklist-map-section" style="display:none;margin-top:16px">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 カテゴリ → Google Tasks リスト 対応</div>
@@ -2558,6 +2569,10 @@ async function loadSettings() {
   document.getElementById('cfg-ollama-host').value = cfg.ollama_host || '';
   const saved = localStorage.getItem('qcatch_api_key') || '';
   document.getElementById('settings-api-key').value = saved;
+  const intervalSel = document.getElementById('sync-interval');
+  if (intervalSel && cfg.sync_interval_minutes != null) {
+    intervalSel.value = String(cfg.sync_interval_minutes);
+  }
   checkGoogleAuthStatus();
 }
 
@@ -3622,6 +3637,7 @@ async function checkGoogleAuthStatus() {
       pushBtn.style.display = '';
       pullBtn.style.display = '';
       logoutBtn.style.display = '';
+      document.getElementById('google-autosync-section').style.display = 'flex';
       loadTasklistMapUI();
     } else if (!data.has_client_secrets) {
       indicator.textContent = '⚠️';
@@ -3722,6 +3738,16 @@ async function loadTasklistMapUI() {
     });
   } catch(e) {
     section.style.display = 'none';
+  }
+}
+
+async function saveSyncInterval() {
+  const val = parseInt(document.getElementById('sync-interval').value);
+  try {
+    await api('POST', '/api/config', {sync_interval_minutes: val});
+    showStatus(val === 0 ? '自動同期を無効にしました（再起動で反映）' : `自動同期を ${val} 分ごとに設定しました（再起動で反映）`, 'success', 3000);
+  } catch(e) {
+    showStatus('エラー: ' + e.message, 'error');
   }
 }
 

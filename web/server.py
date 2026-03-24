@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import sys
 import threading
@@ -11,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -48,6 +50,25 @@ from core.storage import (
 # localhost HTTP で OAuth2 を通すために必要
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
+
+# ── ログ設定 ──────────────────────────────────────────────────────────────────
+def _setup_logging(base_dir: Path) -> logging.Logger:
+    log_file = base_dir / "data" / "app.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setFormatter(fmt)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(fmt)
+    logger = logging.getLogger("qcatch")
+    logger.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    return logger
+
+
 # パス解決
 if getattr(sys, "frozen", False):
     _BASE_DIR = Path(sys.executable).parent
@@ -56,10 +77,63 @@ else:
 
 _STATIC_DIR = _BASE_DIR / "web" / "static"
 _CONFIG_FILE = _BASE_DIR / "qcatch_config.json"
+logger = _setup_logging(_BASE_DIR)
 
 CATEGORIES: list[Category] = ["仕事", "プライベート", "買い物", "学習", "その他"]
 
-app = FastAPI(title="qcatch")
+_app_data: AppData = AppData()
+
+
+def _auto_sync_job() -> None:
+    """定期実行: 認証済みの場合のみ push + pull を行う。"""
+    from core import google_sync
+
+    if not google_sync.is_authenticated():
+        return
+    try:
+        pushed = google_sync.push_all(_app_data)
+        pulled = google_sync.pull_all(_app_data)
+        if pushed or pulled:
+            save_data_bg(_app_data)
+        logger.info(f"自動同期完了: push={pushed} pull={pulled}")
+    except Exception as e:
+        logger.error(f"自動同期エラー: {e}", exc_info=True)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _app_data
+    _app_data, stats = storage.initialize()
+    promoted = promote_longterm_tasks(_app_data)
+    if promoted:
+        save_data(_app_data)
+    logger.info(
+        f"起動完了 — 移行:{stats['migrated']} 吸い上げ:{stats['siphoned']} "
+        f"定期:{stats['recurring']} アーカイブ:{stats['archived']} 長期昇格:{promoted}"
+    )
+
+    # 定期同期スケジューラ起動
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+
+        scheduler = BackgroundScheduler()
+        cfg = _load_config()
+        interval_min = cfg.get("sync_interval_minutes", 30)
+        scheduler.add_job(_auto_sync_job, "interval", minutes=interval_min)
+        scheduler.start()
+        logger.info(f"自動同期スケジューラ起動（{interval_min}分ごと）")
+    except ImportError:
+        logger.warning("apscheduler 未インストール。自動同期は無効です。")
+
+    yield
+
+    try:
+        scheduler.shutdown(wait=False)
+    except Exception:
+        pass
+
+
+app = FastAPI(title="qcatch", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,24 +165,6 @@ def service_worker():
         str(_STATIC_DIR / "sw.js"),
         media_type="application/javascript",
         headers={"Service-Worker-Allowed": "/"},
-    )
-
-
-# ── 起動イベント ──────────────────────────────────────────────────────────────
-
-_app_data: AppData = AppData()
-
-
-@app.on_event("startup")
-def startup():
-    global _app_data
-    _app_data, stats = storage.initialize()
-    promoted = promote_longterm_tasks(_app_data)
-    if promoted:
-        save_data(_app_data)
-    print(
-        f"[qcatch] 起動完了 — 移行:{stats['migrated']} 吸い上げ:{stats['siphoned']} "
-        f"定期:{stats['recurring']} アーカイブ:{stats['archived']} 長期昇格:{promoted}"
     )
 
 
@@ -192,6 +248,7 @@ class ConfigIn(BaseModel):
     ollama_model: Optional[str] = None
     ollama_host: Optional[str] = None
     google_tasklist_map: Optional[dict] = None  # {"仕事": "hurry", ...}
+    sync_interval_minutes: Optional[int] = None  # 自動同期間隔（分）
 
 
 # ── /api/tasks ────────────────────────────────────────────────────────────────
@@ -704,6 +761,8 @@ def update_config(body: ConfigIn):
         cfg["ollama_host"] = body.ollama_host
     if body.google_tasklist_map is not None:
         cfg["google_tasklist_map"] = body.google_tasklist_map
+    if body.sync_interval_minutes is not None:
+        cfg["sync_interval_minutes"] = max(5, body.sync_interval_minutes)
     _save_config(cfg)
     return cfg
 
@@ -1234,10 +1293,13 @@ def sync_push():
     try:
         count = google_sync.push_all(_app_data)
         save_data_bg(_app_data)
+        logger.info(f"sync push: {count} 件")
         return {"pushed": count}
     except RuntimeError as e:
+        logger.warning(f"sync push 失敗（未認証）: {e}")
         raise HTTPException(401, str(e))
     except Exception as e:
+        logger.error(f"sync push エラー: {e}", exc_info=True)
         raise HTTPException(500, str(e))
 
 
@@ -1250,10 +1312,13 @@ def sync_pull():
         count = google_sync.pull_all(_app_data)
         if count:
             save_data_bg(_app_data)
+        logger.info(f"sync pull: {count} 件更新")
         return {"pulled": count}
     except RuntimeError as e:
+        logger.warning(f"sync pull 失敗（未認証）: {e}")
         raise HTTPException(401, str(e))
     except Exception as e:
+        logger.error(f"sync pull エラー: {e}", exc_info=True)
         raise HTTPException(500, str(e))
 
 
@@ -1267,10 +1332,13 @@ def sync_all():
         pulled = google_sync.pull_all(_app_data)
         if pushed or pulled:
             save_data_bg(_app_data)
+        logger.info(f"sync all: push={pushed} pull={pulled}")
         return {"pushed": pushed, "pulled": pulled}
     except RuntimeError as e:
+        logger.warning(f"sync all 失敗（未認証）: {e}")
         raise HTTPException(401, str(e))
     except Exception as e:
+        logger.error(f"sync all エラー: {e}", exc_info=True)
         raise HTTPException(500, str(e))
 
 
