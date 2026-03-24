@@ -588,6 +588,34 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <p style="font-size:13px;color:#888;margin-bottom:12px">Claude・ChatGPT などの AI が生成したタスクリストをそのまま貼り付けて一括登録できます。</p>
     <button class="btn btn-primary" onclick="openImportModal()">📋 一括インポートを開く</button>
   </div>
+
+  <!-- Google 連携 -->
+  <div class="form-card">
+    <h3>Google 連携</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:12px">
+      期日付きタスクを Google Calendar（時刻あり）または Google Tasks（終日）に同期します。<br>
+      事前に <code style="background:#0f3460;padding:1px 5px;border-radius:3px">client_secret.json</code> をプロジェクトルートに配置してください。
+    </p>
+    <div id="google-auth-status" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460">
+      <span id="google-auth-indicator" style="font-size:20px">⏳</span>
+      <span id="google-auth-label" style="font-size:13px;color:#888">確認中…</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button id="google-login-btn" class="btn btn-primary btn-sm" onclick="window.location.href='/api/auth/login'" style="display:none">🔑 Googleでログイン</button>
+      <button id="google-sync-btn" class="btn btn-success btn-sm" onclick="runGoogleSync()" style="display:none">🔄 今すぐ同期</button>
+      <button id="google-push-btn" class="btn btn-ghost btn-sm" onclick="runGooglePush()" style="display:none">⬆ Push のみ</button>
+      <button id="google-pull-btn" class="btn btn-ghost btn-sm" onclick="runGooglePull()" style="display:none">⬇ Pull のみ</button>
+      <button id="google-logout-btn" class="btn btn-danger btn-sm" onclick="googleLogout()" style="display:none">ログアウト</button>
+    </div>
+    <div id="google-sync-log" style="font-size:12px;color:#888;margin-top:10px"></div>
+    <!-- タスクリスト対応表 -->
+    <div id="google-tasklist-map-section" style="display:none;margin-top:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 カテゴリ → Google Tasks リスト 対応</div>
+      <div style="font-size:12px;color:#888;margin-bottom:10px">カテゴリごとに振り分け先リストを指定できます。未指定はカテゴリ名で新規作成します。</div>
+      <table id="tasklist-map-table" style="width:100%;border-collapse:collapse;font-size:13px"></table>
+      <button class="btn btn-primary btn-sm" onclick="saveTasklistMap()" style="margin-top:10px">💾 対応を保存</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── 日記/ブログ ── -->
@@ -2530,6 +2558,7 @@ async function loadSettings() {
   document.getElementById('cfg-ollama-host').value = cfg.ollama_host || '';
   const saved = localStorage.getItem('qcatch_api_key') || '';
   document.getElementById('settings-api-key').value = saved;
+  checkGoogleAuthStatus();
 }
 
 async function saveConfig() {
@@ -3573,10 +3602,158 @@ async function deleteCard(cardId) {
   }
 }
 
+// ── Google 連携 ───────────────────────────────────────────────────────
+async function checkGoogleAuthStatus() {
+  try {
+    const data = await api('GET', '/api/auth/status');
+    const indicator = document.getElementById('google-auth-indicator');
+    const label = document.getElementById('google-auth-label');
+    const loginBtn = document.getElementById('google-login-btn');
+    const syncBtn = document.getElementById('google-sync-btn');
+    const pushBtn = document.getElementById('google-push-btn');
+    const pullBtn = document.getElementById('google-pull-btn');
+    const logoutBtn = document.getElementById('google-logout-btn');
+    if (data.authenticated) {
+      indicator.textContent = '✅';
+      label.textContent = 'Google に接続済み';
+      label.style.color = '#4caf50';
+      loginBtn.style.display = 'none';
+      syncBtn.style.display = '';
+      pushBtn.style.display = '';
+      pullBtn.style.display = '';
+      logoutBtn.style.display = '';
+      loadTasklistMapUI();
+    } else if (!data.has_client_secrets) {
+      indicator.textContent = '⚠️';
+      label.textContent = 'client_secret.json が見つかりません';
+      label.style.color = '#ff9800';
+      loginBtn.style.display = 'none';
+      syncBtn.style.display = 'none';
+      pushBtn.style.display = 'none';
+      pullBtn.style.display = 'none';
+      logoutBtn.style.display = 'none';
+    } else {
+      indicator.textContent = '🔒';
+      label.textContent = '未接続';
+      label.style.color = '#888';
+      loginBtn.style.display = '';
+      syncBtn.style.display = 'none';
+      pushBtn.style.display = 'none';
+      pullBtn.style.display = 'none';
+      logoutBtn.style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('google-auth-label').textContent = 'ステータス取得失敗';
+  }
+}
+
+async function runGoogleSync() {
+  const log = document.getElementById('google-sync-log');
+  log.textContent = '同期中…';
+  try {
+    const res = await api('POST', '/api/sync');
+    log.textContent = `✓ Push: ${res.pushed} 件 / Pull: ${res.pulled} 件`;
+  } catch(e) {
+    log.textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function runGooglePush() {
+  const log = document.getElementById('google-sync-log');
+  log.textContent = 'Push 中…';
+  try {
+    const res = await api('POST', '/api/sync/push');
+    log.textContent = `✓ ${res.pushed} 件を Google に送信しました`;
+  } catch(e) {
+    log.textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function runGooglePull() {
+  const log = document.getElementById('google-sync-log');
+  log.textContent = 'Pull 中…';
+  try {
+    const res = await api('POST', '/api/sync/pull');
+    log.textContent = `✓ ${res.pulled} 件の完了状態を取り込みました`;
+  } catch(e) {
+    log.textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function googleLogout() {
+  if (!confirm('Google 連携を解除しますか？')) return;
+  try {
+    await api('POST', '/api/auth/logout');
+    document.getElementById('google-sync-log').textContent = '';
+    document.getElementById('google-tasklist-map-section').style.display = 'none';
+    checkGoogleAuthStatus();
+  } catch(e) {
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
+async function loadTasklistMapUI() {
+  const section = document.getElementById('google-tasklist-map-section');
+  const table = document.getElementById('tasklist-map-table');
+  section.style.display = '';
+  const CATEGORIES = ['仕事', 'プライベート', '買い物', '学習', 'その他'];
+  try {
+    const [listsRes, cfg] = await Promise.all([
+      api('GET', '/api/auth/tasklists'),
+      api('GET', '/api/config'),
+    ]);
+    const lists = listsRes.lists || [];
+    const currentMap = cfg.google_tasklist_map || {};
+    const opts = lists.map(l => `<option value="${esc(l.title)}">${esc(l.title)}</option>`).join('');
+    table.innerHTML = CATEGORIES.map(cat => `
+      <tr>
+        <td style="padding:5px 10px 5px 0;color:#aaa;white-space:nowrap">${esc(cat)}</td>
+        <td style="padding:5px 0">
+          <select id="tlmap-${esc(cat)}" style="background:#16213e;border:1px solid #0f3460;color:#e0e0e0;border-radius:6px;padding:4px 8px;font-size:12px;width:100%">
+            <option value="">(カテゴリ名で新規作成)</option>
+            ${opts}
+          </select>
+        </td>
+      </tr>`).join('');
+    // 現在の設定を反映
+    CATEGORIES.forEach(cat => {
+      const sel = document.getElementById('tlmap-' + cat);
+      if (sel && currentMap[cat]) sel.value = currentMap[cat];
+    });
+  } catch(e) {
+    section.style.display = 'none';
+  }
+}
+
+async function saveTasklistMap() {
+  const CATEGORIES = ['仕事', 'プライベート', '買い物', '学習', 'その他'];
+  const map = {};
+  CATEGORIES.forEach(cat => {
+    const sel = document.getElementById('tlmap-' + cat);
+    if (sel && sel.value) map[cat] = sel.value;
+  });
+  try {
+    await api('POST', '/api/config', {google_tasklist_map: map});
+    showStatus('✓ リスト対応を保存しました', 'success', 2000);
+  } catch(e) {
+    showStatus('エラー: ' + e.message, 'error');
+  }
+}
+
 // ── 初期化 ────────────────────────────────────────────────────────────
 _activePane = 'home';
 updateHomeBadges();
 updateBadges();
+
+// OAuth コールバック後の通知
+if (location.search.includes('auth=success')) {
+  history.replaceState(null, '', location.pathname);
+  showStatus('✅ Google 連携が完了しました', 'success', 4000);
+} else if (location.search.includes('auth=error')) {
+  const msg = new URLSearchParams(location.search).get('msg') || '不明なエラー';
+  history.replaceState(null, '', location.pathname);
+  showStatus('❌ Google 連携エラー: ' + msg, 'error', 8000);
+}
 
 // 60秒ごとに自動更新（チャットタブは除く）
 setInterval(() => {

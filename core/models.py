@@ -27,6 +27,8 @@ class Task(BaseModel):
     completed_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
     importance: Importance = "medium"
+    google_event_id: Optional[str] = None  # Calendar イベント ID
+    google_task_id: Optional[str] = None  # Google Tasks タスク ID
 
 
 class ChecklistItem(BaseModel):

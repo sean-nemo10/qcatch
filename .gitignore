@@ -1,5 +1,6 @@
 data/
 *.exe
+client_secret.json
 build/
 qcatch_config.json
 docs/*.pptx
