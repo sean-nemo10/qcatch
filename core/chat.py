@@ -59,6 +59,19 @@ _load_history()
 _WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
 
 
+def _calendar_status_line() -> str:
+    try:
+        from core import google_sync
+
+        if google_sync.is_authenticated():
+            return "- Google Calendar: 連携済み（予定の確認・追加が可能）"
+    except Exception:
+        pass
+    return (
+        "- Google Calendar: 未連携（設定タブから認証すると予定の確認・追加ができます）"
+    )
+
+
 def _build_system_prompt(data: AppData) -> str:
     today = date.today()
     today_str = f"{today.year}年{today.month}月{today.day}日（{_WEEKDAY_JA[today.weekday()]}曜日）"
@@ -85,14 +98,15 @@ def _build_system_prompt(data: AppData) -> str:
         "- タスクIDは内部処理にのみ使用し、ユーザーへの返答には絶対に含めないこと。\n"
         "- タスクを完了する際は先に get_tasks でIDを確認してから complete_task を使うこと。\n"
         "- 状況を把握したい場合は get_analysis を使うと滞留・傾向・優先度の分析データが得られる。\n"
-        "- get_tasks で status=done は絶対に指定しないこと。完了タスクは原則として参照しない。\n\n"
+        "- get_tasks で status=done は絶対に指定しないこと。完了タスクは原則として参照しない。\n"
+        "- 今日/今週の予定を聞かれたら get_calendar_events を使うこと（Calendar 連携済みの場合のみ）。\n\n"
         "【現在の概況】\n"
         f"- Inbox（未分類）: {inbox_count} 件\n"
         f"- Todo（分類済み）: {todo_count} 件\n"
         f"- 長期タスク（カウント対象外）: {longterm_count} 件\n"
         f"- 本日完了: {done_today} 件\n"
         f"- アクティブなチェックリスト: {cl_active} 件\n"
-        f"- 定期タスクルール: {rec_count} 件"
+        f"- 定期タスクルール: {rec_count} 件\n" + _calendar_status_line()
     )
 
 
@@ -181,6 +195,23 @@ def _build_tools():
                         "days": types.Schema(
                             type=types.Type.INTEGER,
                             description="取得する日数（デフォルト7、最大30）",
+                        ),
+                    },
+                ),
+            ),
+            types.FunctionDeclaration(
+                name="get_calendar_events",
+                description=(
+                    "Google Calendar から今日以降の予定を取得する。"
+                    "「今日の予定は？」「今週のスケジュールを教えて」などに使う。"
+                    "Google Calendar 連携済みの場合のみ使用可能。"
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "days": types.Schema(
+                            type=types.Type.INTEGER,
+                            description="取得日数。1=今日のみ、7=今後1週間、14=今後2週間（最大30）",
                         ),
                     },
                 ),
@@ -421,6 +452,44 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             f"直近{days}日間の日記（{len(recent)}件）:\n\n" + "\n\n".join(parts),
             actions,
         )
+
+    elif name == "get_calendar_events":
+        days = max(1, min(int(args.get("days", 1)), 30))
+        try:
+            from core import google_sync
+
+            events = google_sync.get_calendar_events(days=days)
+        except RuntimeError as e:
+            return str(e), actions
+        except Exception as e:
+            return f"カレンダー取得エラー: {e}", actions
+
+        if not events:
+            label = "今日" if days == 1 else f"今後{days}日間"
+            return f"{label}の予定はありません。", actions
+
+        _WEEKDAY_JA_SHORT = ["月", "火", "水", "木", "金", "土", "日"]
+        lines = []
+        for ev in events:
+            try:
+                start_dt = datetime.fromisoformat(ev["start"])
+                start_str = (
+                    f"{start_dt.month}/{start_dt.day}"
+                    f"({_WEEKDAY_JA_SHORT[start_dt.weekday()]}) "
+                    f"{start_dt.strftime('%H:%M')}"
+                )
+            except Exception:
+                start_str = ev["start"]
+            try:
+                end_dt = datetime.fromisoformat(ev["end"])
+                end_str = end_dt.strftime("%H:%M")
+            except Exception:
+                end_str = ev["end"]
+            desc = f" — {ev['description'][:60]}" if ev.get("description") else ""
+            lines.append(f"- {start_str}〜{end_str} {ev['title']}{desc}")
+
+        label = "今日" if days == 1 else f"今後{days}日間"
+        return f"{label}の予定（{len(events)}件）:\n" + "\n".join(lines), actions
 
     elif name == "prepare_calendar_event":
         from datetime import timedelta

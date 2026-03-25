@@ -205,6 +205,46 @@ def pull_all(data) -> int:
 # ── Calendar ─────────────────────────────────────────────────────────────────
 
 
+def get_calendar_events(days: int = 1) -> list[dict]:
+    """今日から days 日分の Google Calendar イベントを取得する。"""
+    creds = get_credentials()
+    if not creds:
+        raise RuntimeError(
+            "Google 認証が必要です。/api/auth/login にアクセスしてください。"
+        )
+    from googleapiclient.discovery import build
+    from datetime import timedelta
+
+    service = build("calendar", "v3", credentials=creds)
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=days)
+
+    result = (
+        service.events()
+        .list(
+            calendarId="primary",
+            timeMin=now.isoformat(),
+            timeMax=end.isoformat(),
+            maxResults=50,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+
+    events = []
+    for ev in result.get("items", []):
+        events.append(
+            {
+                "title": ev.get("summary", "（タイトルなし）"),
+                "start": ev["start"].get("dateTime") or ev["start"].get("date", ""),
+                "end": ev["end"].get("dateTime") or ev["end"].get("date", ""),
+                "description": ev.get("description", ""),
+            }
+        )
+    return events
+
+
 def add_calendar_event(
     title: str, start_dt: datetime, end_dt: datetime, description: str = ""
 ) -> str:
