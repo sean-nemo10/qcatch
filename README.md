@@ -1,91 +1,88 @@
-﻿# qcatch
+# ZzzMemo
 
-思いついたタスクを爆速でキャッチし、後で Gemini AI で自動分類する CLI タスク管理アプリ。
+AI 搭載のパーソナルタスク管理 Web アプリ。タスク・日記・語学学習・Google Calendar 連携をブラウザ上で一元管理する。
 
 ---
 
 ## クイックスタート
 
-### Step 1: 依存パッケージのインストール
+### 1. 依存パッケージのインストール
 
-```bash
+```powershell
 pip install -r requirements.txt
 ```
 
-### Step 2: `.exe` をビルドして Windows Search に登録
-
-```powershell
-# 実行ポリシーの変更（初回のみ）
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-.\build.ps1
-```
-
-Windows Search に `qcatch` と入力すると、**トースト通知（右下ポップアップ）** が表示され、
-コンソールを開かずにタスクを追加できます。
-
-### Step 3: Gemini API キーを取得
-
-1. Google Cloud Console でプロジェクトに billing（支払い方法）を登録する
-   - 無料枠内（1500リクエスト/日）は $0。超過分のみ課金
-2. [Google AI Studio](https://aistudio.google.com/app/apikey) を開く
-3. 「Create API key」で `AIzaSy...` 形式のキーを発行
-4. PowerShell で永続設定:
+### 2. Gemini API キーを設定
 
 ```powershell
 [Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "AIzaSy...", "User")
-# → PowerShell を再起動して反映
+# PowerShell を再起動して反映
 ```
 
-> **⚠ 無料枠について**
-> - billing 登録必須（2025年以降の仕様）。登録しても無料枠内は $0
-> - レート制限超過は「エラーで止まる」だけ。自動課金されない
-> - ★ Vertex AI（GCP）のキーは別物・有料なので使わないこと
-> - 使用モデル: `gemini-2.5-flash`（gemini-2.0-flash は新規ユーザー提供終了）
+> API キーは [Google AI Studio](https://aistudio.google.com/app/apikey) で取得。無料枠 1500 回/日。
+
+### 3. 起動
+
+```powershell
+cd C:\dev\ZzzMemo
+python qcatch.py
+```
+
+ブラウザが自動で `http://localhost:5000` を開く。
 
 ---
 
-## 使い方
+## 機能一覧
 
-### `toast` — トースト通知から追加（最速・推奨）
+### タスク管理
+- **ステータス**: Inbox（未分類）/ Todo / 長期 / 完了 / ゴミ箱
+- **重要度**: 高 / 中 / 低
+- **期日**: 📅 ボタンで設定、「明日」「来週」などの自然言語入力にも対応
+- **カテゴリ**: 仕事 / プライベート / 買い物 / 学習 / その他
+- ドラッグ並び替え、一括完了、一括インポート
+- 定期タスク（毎日 / 毎週 / 毎月）の自動生成
+- チェックリスト（期日・アイテム管理）
 
-Windows Search から `qcatch` を起動すると右下にポップアップが出る。
-コンソールウィンドウが前面に出ないため最も邪魔にならない。
+### AI 機能
+- **AI Sort**: タスクを自動分類（Gemini / Ollama / Anthropic カスケード）
+- **タグ提案**: カテゴリ過多になったタスクをサブタグに分割提案
+- **朝のブリーフィング**: 今日のタスク・状況を AI が要約
 
-```bash
-python qcatch.py toast
-qcatch toast     # .exe ビルド後
-```
+### チャット（AI 思考パートナー）
 
-### `add` — コマンドラインから追加（API通信なし）
+チャットタブから自然言語でタスクを操作できる。
 
-```bash
-python qcatch.py add "牛乳を買う"
-qcatch add "牛乳を買う"
-```
+| 発言例 | 実行される操作 |
+|---|---|
+| 「今日何をすべき？」 | タスク分析・優先度アドバイス |
+| 「〇〇を追加して」 | タスク追加（期日・カテゴリ付きも可） |
+| 「〇〇を完了にして」 | タスク完了 |
+| 「〇〇の期日を明日に変更して」 | 期日変更 |
+| 「〇〇を高優先度にして」 | 重要度変更 |
+| 「〇〇を仕事カテゴリに」 | カテゴリ変更 |
+| 「今日の予定は？」 | Google Calendar の予定を一覧表示 |
+| 「明日午後3時にミーティングを追加して」 | カレンダー予定を確認UI付きで追加 |
+| 「今週のタスク状況を分析して」 | 滞留・傾向・優先度の分析 |
 
-### `list` — inbox を確認
+### 日記 / ブログ
+- 日付ナビ付き日記（オートセーブ）
+- ブログ記事管理（タイトル・タグ付き）
+- AI 提案: 空日記 → 完了タスクから話題提案 / 書いた後 → 内容充実案
 
-```bash
-python qcatch.py list
-```
+### 語学学習（英語）
+- 今日の完了タスク・日記から AI が英語練習問題を3問生成
+- 問題ごとに回答を書いて AI 添削を受ける
+- 添削後にフラッシュカード保存、マルチターン議論も可能
+- SM-2 アルゴリズムによるカード復習スケジューリング
 
-### `sort` — AI で自動分類
+### Google Calendar / Tasks 連携
+設定タブ → 「Google 連携」から OAuth2 認証を行う。
 
-```bash
-# Gemini 2.0 Flash（推奨・無料）
-python qcatch.py sort
-
-# Ollama（完全ローカル・オフライン）
-python qcatch.py sort --local
-
-# API なし（プロンプトをファイルに書き出す）
-python qcatch.py sort --export
-```
-
-バックエンド設定: `python qcatch.py config set sort_backend ollama`（Ollama を常用する場合）
-
-分類結果は `data/sorted_tasks.md` に保存。`inbox.txt` は `data/archive.txt` に移動してクリア。
+- **Push**: ZzzMemo のタスク（期日付き）を Google に同期
+- **Pull**: Google Tasks で完了したタスクを ZzzMemo に反映
+- **自動同期**: 30分ごとにバックグラウンドで実行（APScheduler）
+- **カレンダー予定確認**: チャットで「今日の予定は？」
+- **カレンダー予定追加**: チャットで自然言語 → 確認カード → 追加
 
 ---
 
@@ -93,76 +90,72 @@ python qcatch.py sort --export
 
 ```
 ZzzMemo/
-├── qcatch.py             # メインスクリプト（全機能）
-├── qcatch.exe            # ビルド後に生成（.gitignore 済み）
-├── build.ps1             # .exe ビルド + Windows Search 登録
+├── qcatch.py              # エントリポイント（python qcatch.py で起動）
 ├── requirements.txt
-├── .gitignore
 │
-├── data/                 # 実行時データ（.gitignore 済み）
-│   ├── inbox.txt         # 未整理タスク
-│   ├── sorted_tasks.md   # AI 分類済みタスク
-│   ├── archive.txt       # sort 済みの inbox バックアップ
-│   └── sort_prompt.txt   # --export で生成されるプロンプト
+├── core/
+│   ├── models.py          # データモデル（Task / Diary / Blog / FlashCard 等）
+│   ├── storage.py         # 読み書き・マイグレーション・SM-2
+│   ├── ai.py              # AI sort / タグ提案
+│   ├── chat.py            # チャット・ブリーフィング（Function Calling）
+│   ├── writing.py         # 日記・ブログ AI 提案
+│   ├── lang.py            # 英語練習・添削・議論
+│   └── google_sync.py     # Google Calendar / Tasks 同期
 │
-├── docs/
-│   ├── generate_docs.py  # PPTX ガイド生成
-│   └── qcatch_guide.pptx
+├── web/
+│   ├── server.py          # FastAPI アプリ・ライフスパン
+│   ├── deps.py            # 共有状態（app_data / logger）
+│   └── routers/           # APIルーター（tasks / chat / diary / lang 等）
 │
-└── prompts/
-    ├── gemini_questions.md    # 技術調査 Q&A（済）
-    └── gemini_improvement.md  # 改善案調査 Q&A（済）
+├── web/static/
+│   ├── index.html         # SPA 本体
+│   └── js/                # ES モジュール（16ファイル）
+│
+└── data/                  # 実行時データ（.gitignore 済み）
+    ├── qcatch.db          # SQLite（タスク・チェックリスト等）
+    ├── diary.json
+    ├── blog.json
+    ├── flashcards.json
+    ├── chat_history.json
+    └── app.log
 ```
 
 ---
 
-## 起動方法まとめ
+## 設定
 
-| 方法 | 動作 | 条件 |
+### AI バックエンド（Sort 用）
+
+| バックエンド | コスト | 設定方法 |
 |---|---|---|
-| Windows Search → Enter | トースト通知が出る（最速） | `build.ps1` 実行後・数分後 |
-| `qcatch add "タスク"` | 即追記して終了 | `build.ps1` 実行後、即時 |
-| `python qcatch.py prompt` | ターミナルで対話入力 | Python 環境があれば常時 |
+| Gemini 2.5 Flash | 無料枠あり | `GEMINI_API_KEY` 環境変数 |
+| Ollama（ローカル） | 無料・オフライン | Ollama インストール後、自動検出 |
+| Claude Haiku | 有料 | `ANTHROPIC_API_KEY` 環境変数 |
 
----
-
-## sort コマンドのバックエンド選択
-
-| バックエンド | コスト | オフライン | コマンド |
-|---|---|---|---|
-| Gemini 2.0 Flash | 無料枠あり | 不可 | `qcatch sort`（GEMINI_API_KEY 設定） |
-| Ollama（phi4 等） | 無料 | **可** | `qcatch sort --local` |
-| Claude Haiku | 有料 | 不可 | `qcatch sort`（ANTHROPIC_API_KEY 設定） |
-| 手動（export） | 無料 | 可 | `qcatch sort --export` |
-
-Ollama を使う場合は [ollama.com](https://ollama.com) からアプリをインストール後:
-```bash
-ollama pull phi4      # 推奨（軽量・高精度）
-# または
-ollama pull llama3.2  # 代替
+Ollama を使う場合:
+```powershell
+# ollama.com からインストール後
+ollama pull phi4
 ```
 
-モデルは `python qcatch.py config set ollama_model llama3.2` で変更可能（デフォルト: `phi4`）。
+### チャットの AI キー
+
+チャットタブ右上の ⚙ アイコンから Gemini API キーを入力（localStorage に保存）。
 
 ---
 
 ## トラブルシューティング
 
-### `build.ps1` が実行できない
+### ポート 5000 が使用中
 
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+python qcatch.py --port 5001
 ```
 
-### Windows Search に出てこない
+### Google 認証エラー
 
-- ショートカット作成直後は数分待つ
-- 「qcatch Task Capture」でも検索してみる
-
-### トースト通知が表示されない
-
-Windows 11 の通知設定でアプリの通知が無効になっている可能性。
-「設定 → システム → 通知」で確認。フォールバックとして `qcatch prompt` が使える。
+`client_secret.json` がプロジェクトルートに必要。
+GCP Console → APIs & Services → Credentials → OAuth 2.0 クライアント ID からダウンロード。
 
 ### Gemini API エラー 429
 
