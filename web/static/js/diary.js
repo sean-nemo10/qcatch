@@ -53,7 +53,7 @@ export async function loadDiaryHistory() {
   try {
     const res = await api('GET', '/api/diary');
     if (!res.dates.length) {
-      list.innerHTML = '<div style="font-size:13px;color:#555;padding:8px 0">まだ日記がありません</div>';
+      list.innerHTML = '<div style="font-size:13px;color:var(--text-faint);padding:8px 0">まだ日記がありません</div>';
       return;
     }
     const cur = document.getElementById('diary-date').value;
@@ -156,7 +156,7 @@ export async function loadBlogList() {
   try {
     const res = await api('GET', '/api/blog');
     if (!res.posts.length) {
-      list.innerHTML = '<div style="font-size:13px;color:#555;padding:8px 0">まだブログ記事がありません</div>';
+      list.innerHTML = '<div style="font-size:13px;color:var(--text-faint);padding:8px 0">まだブログ記事がありません</div>';
       return;
     }
     list.innerHTML = res.posts.map(p => `

@@ -97,7 +97,7 @@ export async function checkGoogleAuthStatus() {
     } else {
       indicator.textContent = '🔒';
       label.textContent = '未接続';
-      label.style.color = '#888';
+      label.style.color = 'var(--text-dim)';
       loginBtn.style.display = '';
       syncBtn.style.display = 'none';
       pushBtn.style.display = 'none';
@@ -174,9 +174,9 @@ export async function loadTasklistMapUI() {
     const opts = lists.map(l => `<option value="${esc(l.title)}">${esc(l.title)}</option>`).join('');
     table.innerHTML = CATEGORIES.map(cat => `
       <tr>
-        <td style="padding:5px 10px 5px 0;color:#aaa;white-space:nowrap">${esc(cat)}</td>
+        <td style="padding:5px 10px 5px 0;color:var(--text-muted);white-space:nowrap">${esc(cat)}</td>
         <td style="padding:5px 0">
-          <select id="tlmap-${esc(cat)}" style="background:#16213e;border:1px solid #0f3460;color:#e0e0e0;border-radius:6px;padding:4px 8px;font-size:12px;width:100%">
+          <select id="tlmap-${esc(cat)}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:12px;width:100%">
             <option value="">(カテゴリ名で新規作成)</option>
             ${opts}
           </select>

@@ -18,9 +18,9 @@ export async function loadDashboard() {
 
     container.innerHTML += `
       <div class="dash-section">
-        <div style="padding:10px 14px;background:#0d1f2d;border:1px solid #0f3460;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
+        <div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
           <span>☀️</span>
-          <span style="color:#888">AI が今日のフォーカスを分析します</span>
+          <span style="color:var(--text-dim)">AI が今日のフォーカスを分析します</span>
           <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="sendBriefing()">朝のブリーフィング</button>
         </div>
       </div>`;
@@ -28,7 +28,7 @@ export async function loadDashboard() {
     const _inboxCount = inboxData.tasks.length;
     container.innerHTML += `
       <div class="dash-section">
-        <div style="padding:10px 14px;background:${_inboxCount > 0 ? '#1a2a10' : '#0d1f2d'};border:1px solid ${_inboxCount > 0 ? '#2e7d32' : '#0f3460'};border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
+        <div style="padding:10px 14px;background:${_inboxCount > 0 ? '#1a2a10' : 'var(--surface)'};border:1px solid ${_inboxCount > 0 ? '#2e7d32' : 'var(--border)'};border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
           <span>📥</span>
           <span>${_inboxCount > 0 ? `Inbox に <strong>${_inboxCount} 件</strong> の未分類タスク` : 'Inbox は空です'}</span>
           <span style="margin-left:auto;display:flex;gap:6px">
@@ -132,7 +132,7 @@ export function renderClDashItem(cl) {
   return `<div class="dash-item type-checklist">
     <div class="dash-item-icon">📋</div>
     <div class="dash-item-body">
-      <div class="dash-item-text">${esc(cl.name)}${cl.due_date?` <span style="font-size:11px;color:${overdue?'#ff7043':'#888'}">📅 ${fmtDatetime(cl.due_date)}</span>`:''}</div>
+      <div class="dash-item-text">${esc(cl.name)}${cl.due_date?` <span style="font-size:11px;color:${overdue?'#ff7043':'var(--text-dim)'}">📅 ${fmtDatetime(cl.due_date)}</span>`:''}</div>
       <div class="cl-mini-bar"><div class="cl-mini-bar-fill" style="width:${pct}%"></div></div>
       <div class="dash-item-meta">${done}/${total} 完了 — 残り: ${remaining.slice(0,3).map(i=>esc(i.text)).join('、')}${remaining.length>3?'…':''}</div>
     </div>

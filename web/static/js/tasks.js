@@ -71,7 +71,7 @@ export async function loadTasks() {
           <div class="task-drag-handle" title="ドラッグして並び替え">⠿</div>
           <input type="checkbox" ${state.selectedTaskIds.has(t.id)?'checked':''} onclick="toggleSelect('${t.id}', event)">
           <div class="task-text" id="txt-${t.id}" title="${esc(tip)}">${esc(t.text)}${t.tags&&t.tags[0]?`<span class="task-subtag" onclick="openSubfolderModal('${t.id}');event.stopPropagation()" title="📁 ${esc(t.tags[0])} — クリックで変更">📁 ${esc(t.tags[0])}</span><span onclick="clearSubtag('${t.id}');event.stopPropagation()" style="cursor:pointer;opacity:.4;font-size:10px;margin-left:1px" title="サブフォルダを外す">×</span>`:`<button class="subfolder-add" onclick="openSubfolderModal('${t.id}');event.stopPropagation()" title="サブフォルダに分類">📁+</button>`}${badge}</div>
-          <input class="task-edit-input" id="edit-${t.id}" value="${esc(t.text)}" style="display:none;flex:1;padding:3px 8px;background:#0f2547;border:1px solid #4fc3f7;border-radius:4px;color:#e0e0e0;font-size:14px;font-family:inherit"
+          <input class="task-edit-input" id="edit-${t.id}" value="${esc(t.text)}" style="display:none;flex:1;padding:3px 8px;background:var(--surface-deep);border:1px solid var(--accent);border-radius:4px;color:var(--text);font-size:14px;font-family:inherit"
             onkeydown="if(event.key==='Enter')saveEdit('${t.id}');if(event.key==='Escape')cancelEdit('${t.id}')"
             onblur="saveEdit('${t.id}')">
           <div class="task-actions" onclick="e=>e.stopPropagation()">
@@ -125,7 +125,7 @@ export async function loadLongterm() {
   const container = document.getElementById('longterm-list');
   const tasks = data.tasks;
   if (!tasks.length) {
-    container.innerHTML = '<div class="empty">長期タスクがありません<br><span style="font-size:12px;color:#555">タスクタブの 🗂 ボタンで追加できます</span></div>';
+    container.innerHTML = '<div class="empty">長期タスクがありません<br><span style="font-size:12px;color:var(--text-faint)">タスクタブの 🗂 ボタンで追加できます</span></div>';
     return;
   }
   container.innerHTML = tasks.map(t => {
@@ -272,7 +272,7 @@ export async function loadTrash() {
   if (!tasks.length) { list.innerHTML = '<div class="empty">ゴミ箱は空です</div>'; return; }
   list.innerHTML = tasks.map(t => `
     <div class="task-item" id="ti-${t.id}">
-      <div class="task-text" style="color:${t.status==='done'?'#aaa':'#666'};${t.status==='trashed'?'text-decoration:line-through':''}">
+      <div class="task-text" style="color:${t.status==='done'?'var(--text-muted)':'var(--text-dim)'};${t.status==='trashed'?'text-decoration:line-through':''}">
         ${t.status==='done'?'<span class="done-mark">✓</span> ':'🗑 '}${esc(t.text)}
         ${t.category?`<span class="task-cat ${CAT_COLORS[t.category]||''}" style="margin-left:6px">${esc(t.category)}</span>`:''}
       </div>
@@ -362,13 +362,13 @@ export function openSubfolderModal(taskId) {
 
   const list = document.getElementById('modal-subfolder-list');
   if (folders.length) {
-    list.innerHTML = `<div style="font-size:11px;color:#888;margin-bottom:6px">既存のサブフォルダ:</div>` +
+    list.innerHTML = `<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">既存のサブフォルダ:</div>` +
       folders.map(f => `
         <button class="subfolder-item${f === currentFolder ? ' active' : ''}" onclick="saveSubfolder('${esc(f)}')">
           ${f === currentFolder ? '✓ ' : ''}📁 ${esc(f)}
         </button>`).join('');
   } else {
-    list.innerHTML = '<div style="font-size:12px;color:#555;text-align:center;padding:6px 0">このカテゴリに既存のサブフォルダがありません</div>';
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-faint);text-align:center;padding:6px 0">このカテゴリに既存のサブフォルダがありません</div>';
   }
 
   document.getElementById('modal-subfolder-new').value = '';
@@ -531,9 +531,9 @@ export async function suggestTags() {
         <input type="checkbox" id="sug-${i}" checked>
         <div class="suggestion-text">
           <strong>${esc(s.text)}</strong><br>
-          <span style="color:#888">${esc(s.current)}</span>
+          <span style="color:var(--text-dim)">${esc(s.current)}</span>
           <span class="suggestion-arrow">→</span>
-          <span style="color:#4fc3f7">${esc(s.suggested)}</span>
+          <span style="color:var(--accent)">${esc(s.suggested)}</span>
         </div>
       </div>`).join('');
     document.getElementById('modal-tags').classList.add('show');
@@ -583,13 +583,13 @@ export async function suggestSplits() {
     const list = document.getElementById('splits-list');
     list.innerHTML = Object.entries(byTag).map(([tag, items]) => `
       <div style="margin-bottom:14px">
-        <div style="font-size:12px;color:#4fc3f7;font-weight:700;margin-bottom:6px">› ${esc(tag)}</div>
+        <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:6px">› ${esc(tag)}</div>
         ${items.map(s => `
           <div class="suggestion-item">
             <input type="checkbox" id="spl-${s._idx}" checked>
             <div class="suggestion-text">
               <span style="font-size:13px">${esc(s.text)}</span>
-              <span style="font-size:11px;color:#666;margin-left:6px">${esc(s.category)}</span>
+              <span style="font-size:11px;color:var(--text-dim);margin-left:6px">${esc(s.category)}</span>
             </div>
           </div>`).join('')}
       </div>`).join('');

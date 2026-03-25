@@ -100,12 +100,12 @@ export function previewImport() {
     countEl.style.color = '#e53935';
     section.style.display = '';
     execBtn.style.display = 'none';
-    preview.innerHTML = '<div style="font-size:13px;color:#666;padding:10px 0">テキストを確認してください。箇条書き（- / * / 1.）や1行1タスク形式に対応しています。</div>';
+    preview.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:10px 0">テキストを確認してください。箇条書き（- / * / 1.）や1行1タスク形式に対応しています。</div>';
     return;
   }
 
   countEl.textContent = `${_importTasks.length} 件のタスクを検出`;
-  countEl.style.color = '#4fc3f7';
+  countEl.style.color = 'var(--accent)';
   preview.innerHTML = _importTasks.map((t, i) => `
     <div class="import-item" id="iitem-${i}">
       <button class="import-item-remove" onclick="removeImportItem(${i})" title="このタスクを除外">✕</button>

@@ -1,6 +1,6 @@
 {
-  "name": "qcatch",
-  "short_name": "qcatch",
+  "name": "ZzzMemo",
+  "short_name": "ZzzMemo",
   "description": "AI-powered task capture and management",
   "start_url": "/",
   "display": "standalone",
@@ -18,14 +18,14 @@
       "sizes": "1280x800",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "qcatch desktop view"
+      "label": "ZzzMemo desktop view"
     },
     {
       "src": "/static/screenshot-narrow.png",
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "qcatch mobile view"
+      "label": "ZzzMemo mobile view"
     }
   ]
 }

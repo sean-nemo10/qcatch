@@ -63,7 +63,7 @@ def _setup_logging(base_dir: Path) -> logging.Logger:
     file_handler.setFormatter(fmt)
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(fmt)
-    logger = logging.getLogger("qcatch")
+    logger = logging.getLogger("ZzzMemo")
     logger.setLevel(logging.INFO)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
@@ -134,7 +134,7 @@ async def lifespan(app: FastAPI):
         pass
 
 
-app = FastAPI(title="qcatch", lifespan=lifespan)
+app = FastAPI(title="ZzzMemo", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1374,7 +1374,7 @@ def export_markdown():
     for t in todo:
         by_cat[t.category or "未分類"].append(t)
 
-    lines = ["# qcatch タスクリスト\n"]
+    lines = ["# ZzzMemo タスクリスト\n"]
     for cat, tasks in sorted(by_cat.items()):
         lines.append(f"## {cat}\n")
         for t in tasks:
@@ -1410,5 +1410,5 @@ def run(port: int = 5000, open_browser: bool = True) -> None:
 
         threading.Thread(target=_open, daemon=True).start()
 
-    print(f"[qcatch] サーバー起動 → {url}")
+    print(f"[ZzzMemo] サーバー起動 → {url}")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

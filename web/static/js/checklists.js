@@ -20,7 +20,7 @@ export async function loadChecklists() {
       <div class="checklist-head">
         <div style="flex:1;min-width:0">
           <h3 ondblclick="startClNameEdit('${cl.id}',this)" style="cursor:text" title="ダブルクリックで名前を編集">${esc(cl.name)}</h3>
-          ${cl.due_date ? `<div style="font-size:11px;color:${isDue(cl.due_date)?'#ff7043':'#888'};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
+          ${cl.due_date ? `<div style="font-size:11px;color:${isDue(cl.due_date)?'#ff7043':'var(--text-dim)'};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
         </div>
         <span class="cl-progress">${done}/${total}</span>
         <button class="btn btn-ghost btn-sm" onclick="editClDue('${cl.id}','${cl.due_date||''}')">期日</button>
@@ -189,7 +189,7 @@ export function startClItemEdit(clId, idx, labelEl) {
   const orig = labelEl.textContent;
   const inp = document.createElement('input');
   inp.value = orig;
-  inp.style.cssText = 'flex:1;padding:2px 6px;background:#0f2547;border:1px solid #4fc3f7;border-radius:4px;color:#e0e0e0;font-size:14px;font-family:inherit';
+  inp.style.cssText = 'flex:1;padding:2px 6px;background:var(--surface-deep);border:1px solid var(--accent);border-radius:4px;color:var(--text);font-size:14px;font-family:inherit';
   labelEl.replaceWith(inp);
   inp.focus(); inp.select();
   const finish = async () => {
@@ -214,7 +214,7 @@ export function startClNameEdit(clId, h3El) {
   const orig = h3El.textContent;
   const inp = document.createElement('input');
   inp.value = orig;
-  inp.style.cssText = 'font-size:15px;font-weight:600;background:transparent;border:none;border-bottom:1px solid #4fc3f7;color:#e0e0e0;width:100%;font-family:inherit;outline:none';
+  inp.style.cssText = 'font-size:15px;font-weight:600;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);width:100%;font-family:inherit;outline:none';
   h3El.replaceWith(inp);
   inp.focus(); inp.select();
   const finish = async () => {

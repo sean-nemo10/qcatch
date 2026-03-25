@@ -3,17 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0f3460">
-<title>qcatch</title>
+<meta name="theme-color" content="#0d0d0d">
+<title>ZzzMemo</title>
 <link rel="manifest" href="/manifest.json">
 <style>
+:root{--bg:#0d0d0d;--surface:#161616;--border:#282828;--surface-deep:#111;--divider:#1e1e1e;--input-border:#383838;--text:#e0e0e0;--text-muted:#999;--text-dim:#777;--text-faint:#555;--text-hover:#ccc;--overlay:rgba(0,0,0,.85);--shadow:rgba(0,0,0,.7);--accent:#4fc3f7;--accent-glow:#4fc3f780}
+[data-theme=navy]{--bg:#1a1a2e;--surface:#16213e;--border:#0f3460;--surface-deep:#0f2547;--divider:#1a2a4a;--input-border:#1a4080;--text:#e0e0e0;--text-muted:#aaa;--text-dim:#666;--text-faint:#555;--text-hover:#ccc;--overlay:rgba(0,0,0,.7);--shadow:rgba(0,0,0,.5);--accent:#4fc3f7;--accent-glow:#4fc3f780}
+[data-theme=white]{--bg:#f8f9fa;--surface:#fff;--border:#dee2e6;--surface-deep:#e9ecef;--divider:#ced4da;--input-border:#adb5bd;--text:#212529;--text-muted:#6c757d;--text-dim:#868e96;--text-faint:#adb5bd;--text-hover:#343a40;--overlay:rgba(0,0,0,.5);--shadow:rgba(0,0,0,.15);--accent:#1976d2;--accent-glow:#1976d280}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0;height:100vh;display:flex;flex-direction:column}
+body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
 /* ── ボトムナビ ── */
-.bottom-nav{display:flex;background:#16213e;border-top:2px solid #0f3460;flex-shrink:0;height:56px}
-.nav-btn{flex:1;background:transparent;border:none;color:#666;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:color .2s;font-family:inherit;border-top:2px solid transparent;margin-top:-2px}
-.nav-btn:hover{color:#ccc}
-.nav-btn.active{color:#4fc3f7;border-top-color:#4fc3f7}
+.bottom-nav{display:flex;background:var(--surface);border-top:2px solid var(--border);flex-shrink:0;height:56px}
+.nav-btn{flex:1;background:transparent;border:none;color:var(--text-dim);font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:color .2s;font-family:inherit;border-top:2px solid transparent;margin-top:-2px}
+.nav-btn:hover{color:var(--text-hover)}
+.nav-btn.active{color:var(--accent);border-top-color:var(--accent)}
 .nav-icon{font-size:20px;line-height:1}
 .nav-label{font-size:10px}
 /* ── メインコンテンツ ── */
@@ -22,24 +25,24 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .pane.active{display:block}
 /* ── Quick Add ── */
 .quick-add{display:flex;gap:8px;margin-bottom:16px}
-.quick-add input{flex:1;padding:10px 14px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit}
-.quick-add input:focus{outline:none;border-color:#4fc3f7}
+.quick-add input{flex:1;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit}
+.quick-add input:focus{outline:none;border-color:var(--accent)}
 /* ── ボタン ── */
 .btn{padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:opacity .2s;min-height:44px;user-select:none;-webkit-user-select:none}
 .btn:hover{opacity:.85}
-.btn-primary{background:#4fc3f7;color:#000;font-weight:600}
+.btn-primary{background:var(--accent);color:#000;font-weight:600}
 .btn-success{background:#4caf50;color:#fff;font-weight:600}
 .btn-danger{background:#e53935;color:#fff}
 .btn-warning{background:#ff9800;color:#000}
-.btn-ghost{background:transparent;border:1px solid #555;color:#aaa}
-.btn-ghost:hover{border-color:#4fc3f7;color:#4fc3f7}
+.btn-ghost{background:transparent;border:1px solid var(--text-faint);color:var(--text-muted)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
 .btn-sm{padding:5px 10px;font-size:12px}
 /* ── タスクリスト ── */
 .task-list{display:flex;flex-direction:column;gap:6px}
-.task-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460;cursor:default;transition:border-color .15s;user-select:none;-webkit-user-select:none}
-.task-item:hover{border-color:#4fc3f7}
-.task-item.selected{border-color:#4fc3f7;background:#0f2547}
-.task-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#4fc3f7}
+.task-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-radius:8px;border:1px solid var(--border);cursor:default;transition:border-color .15s;user-select:none;-webkit-user-select:none}
+.task-item:hover{border-color:var(--accent)}
+.task-item.selected{border-color:var(--accent);background:var(--surface-deep)}
+.task-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--accent)}
 .task-text{flex:1;font-size:14px;line-height:1.4}
 .task-cat{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap}
 .task-actions{display:flex;gap:6px;flex-shrink:0}
@@ -51,94 +54,94 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 /* ── カテゴリセクション ── */
 .cat-section{margin-bottom:20px}
 .cat-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:6px 0;cursor:pointer;user-select:none;-webkit-user-select:none}
-.cat-header:hover h3{color:#ccc}
-.cat-header h3{font-size:13px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}
-.cat-count{font-size:11px;color:#666;padding:2px 8px;background:#16213e;border-radius:10px}
-.cat-fold-icon{font-size:11px;color:#555;margin-left:auto;transition:transform .2s}
+.cat-header:hover h3{color:var(--text-hover)}
+.cat-header h3{font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;transition:color .15s}
+.cat-count{font-size:11px;color:var(--text-dim);padding:2px 8px;background:var(--surface);border-radius:10px}
+.cat-fold-icon{font-size:11px;color:var(--text-faint);margin-left:auto;transition:transform .2s}
 .cat-section.folded .cat-fold-icon{transform:rotate(-90deg)}
 .cat-section.folded .task-list{display:none}
 /* ── ツールバー ── */
 .toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
 .toolbar-right{margin-left:auto;display:flex;gap:8px}
 /* ── バッジ ── */
-.badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;background:#0f3460;color:#4fc3f7;font-weight:600}
+.badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;background:var(--border);color:var(--accent);font-weight:600}
 /* ── チェックリスト ── */
-.checklist-card{background:#16213e;border:1px solid #0f3460;border-radius:10px;margin-bottom:12px;overflow:hidden}
-.checklist-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0f3460}
+.checklist-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.checklist-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--border)}
 .checklist-head h3{flex:1;font-size:15px;font-weight:600}
 .checklist-items{padding:10px 16px;display:flex;flex-direction:column;gap:6px}
-.cl-item{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1a2a4a}
+.cl-item{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--divider)}
 .cl-item:last-child{border-bottom:none}
-.cl-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#4fc3f7}
+.cl-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--accent)}
 .cl-item label{flex:1;font-size:14px;cursor:pointer}
-.cl-item.done label{text-decoration:line-through;color:#555}
-.cl-progress{font-size:12px;color:#888;margin-left:auto}
-.checklist-footer{padding:10px 16px;display:flex;gap:8px;border-top:1px solid #0f3460}
+.cl-item.done label{text-decoration:line-through;color:var(--text-faint)}
+.cl-progress{font-size:12px;color:var(--text-dim);margin-left:auto}
+.checklist-footer{padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)}
 /* ── 定期タスク ── */
-.recurring-card{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.recurring-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .recurring-info{flex:1}
 .recurring-info .text{font-size:14px;font-weight:600}
-.recurring-info .meta{font-size:12px;color:#888;margin-top:3px}
+.recurring-info .meta{font-size:12px;color:var(--text-dim);margin-top:3px}
 /* ── フォーム ── */
-.form-card{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:16px;margin-bottom:16px}
-.form-card h3{font-size:14px;font-weight:600;margin-bottom:12px;color:#4fc3f7}
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+.form-card h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent)}
 .form-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-.form-row input,.form-row select,.form-input,.form-select{padding:8px 12px;background:#0f3460;border:1px solid #1a4080;border-radius:6px;color:#e0e0e0;font-size:13px;font-family:inherit}
+.form-row input,.form-row select,.form-input,.form-select{padding:8px 12px;background:var(--border);border:1px solid var(--input-border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit}
 .form-input{width:100%;margin-bottom:10px}
-.form-row input:focus,.form-row select:focus,.form-input:focus,.form-select:focus{outline:none;border-color:#4fc3f7}
+.form-row input:focus,.form-row select:focus,.form-input:focus,.form-select:focus{outline:none;border-color:var(--accent)}
 .weekday-picker{display:flex;gap:6px;flex-wrap:wrap}
-.wd-btn{padding:5px 10px;border:1px solid #555;border-radius:6px;cursor:pointer;font-size:12px;background:transparent;color:#aaa;font-family:inherit;transition:all .2s}
-.wd-btn.active{background:#0f3460;border-color:#4fc3f7;color:#4fc3f7}
+.wd-btn{padding:5px 10px;border:1px solid var(--text-faint);border-radius:6px;cursor:pointer;font-size:12px;background:transparent;color:var(--text-muted);font-family:inherit;transition:all .2s}
+.wd-btn.active{background:var(--border);border-color:var(--accent);color:var(--accent)}
 /* ── ステータス表示 ── */
 .status-bar{padding:8px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;display:none}
 .status-bar.show{display:block}
-.status-bar.info{background:#0f3460;color:#4fc3f7}
+.status-bar.info{background:var(--border);color:var(--accent)}
 .status-bar.success{background:#1b5e20;color:#a5d6a7}
 .status-bar.error{background:#b71c1c;color:#ffcdd2}
 /* ── 設定 ── */
-.setting-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #0f3460}
+.setting-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
 .setting-row:last-child{border-bottom:none}
-.setting-label{width:160px;font-size:13px;color:#aaa}
+.setting-label{width:160px;font-size:13px;color:var(--text-muted)}
 .setting-value{flex:1}
 /* ── タグ提案モーダル ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.modal-overlay{display:none;position:fixed;inset:0;background:var(--overlay);z-index:100;align-items:center;justify-content:center}
 .modal-overlay.show{display:flex}
-.modal{background:#1a1a2e;border:1px solid #0f3460;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
-.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;color:#4fc3f7}
-.suggestion-item{display:flex;align-items:center;gap:10px;padding:10px;background:#16213e;border-radius:8px;margin-bottom:8px}
-.suggestion-item input[type=checkbox]{width:16px;height:16px;accent-color:#4fc3f7}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--accent)}
+.suggestion-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface);border-radius:8px;margin-bottom:8px}
+.suggestion-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
 .suggestion-text{flex:1;font-size:13px}
-.suggestion-arrow{color:#4fc3f7;font-size:16px}
+.suggestion-arrow{color:var(--accent);font-size:16px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 /* ── カテゴリ変更ドロップダウン ── */
 .cat-change-wrap{position:relative;display:inline-block}
-.cat-change-menu{display:none;position:absolute;right:0;top:100%;z-index:50;background:#1a1a2e;border:1px solid #0f3460;border-radius:8px;padding:4px;min-width:110px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.cat-change-menu{display:none;position:absolute;right:0;top:100%;z-index:50;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:110px;box-shadow:0 4px 12px var(--shadow)}
 .cat-change-menu.open{display:block}
-.cat-change-item{display:block;width:100%;text-align:left;padding:5px 10px;font-size:12px;border:none;background:transparent;color:#e0e0e0;cursor:pointer;border-radius:4px;font-family:inherit}
-.cat-change-item:hover{background:#0f3460}
+.cat-change-item{display:block;width:100%;text-align:left;padding:5px 10px;font-size:12px;border:none;background:transparent;color:var(--text);cursor:pointer;border-radius:4px;font-family:inherit}
+.cat-change-item:hover{background:var(--border)}
 /* ── サブフォルダチップ ── */
 .task-subtag{font-size:10px;padding:2px 7px;border-radius:8px;background:#1a2a10;color:#a5d6a7;border:1px solid #2e7d32;white-space:nowrap;margin-left:4px;cursor:pointer;transition:background .15s}
 .task-subtag:hover{background:#2e4a20}
-.subfolder-add{font-size:10px;padding:2px 7px;border-radius:8px;background:transparent;color:#555;border:1px dashed #555;white-space:nowrap;margin-left:4px;cursor:pointer;transition:all .15s;font-family:inherit}
+.subfolder-add{font-size:10px;padding:2px 7px;border-radius:8px;background:transparent;color:var(--text-faint);border:1px dashed var(--text-faint);white-space:nowrap;margin-left:4px;cursor:pointer;transition:all .15s;font-family:inherit}
 .subfolder-add:hover{border-color:#2e7d32;color:#a5d6a7}
 /* ── サブフォルダメニュー ── */
 .subfolder-wrap{position:relative;display:inline-flex;align-items:center}
-.subfolder-menu{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:60;background:#1a1a2e;border:1px solid #2e7d32;border-radius:8px;padding:6px;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,.6)}
+.subfolder-menu{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:60;background:var(--bg);border:1px solid #2e7d32;border-radius:8px;padding:6px;min-width:160px;box-shadow:0 4px 16px var(--shadow)}
 .subfolder-menu.open{display:block}
-.subfolder-item{display:block;width:100%;text-align:left;padding:5px 10px;font-size:12px;border:none;background:transparent;color:#e0e0e0;cursor:pointer;border-radius:4px;font-family:inherit;white-space:nowrap}
-.subfolder-item:hover{background:#0f3460}
+.subfolder-item{display:block;width:100%;text-align:left;padding:5px 10px;font-size:12px;border:none;background:transparent;color:var(--text);cursor:pointer;border-radius:4px;font-family:inherit;white-space:nowrap}
+.subfolder-item:hover{background:var(--border)}
 .subfolder-item.active{color:#a5d6a7;font-weight:600}
-.subfolder-new-input{width:100%;padding:4px 8px;background:#0f3460;border:1px solid #1a4080;border-radius:4px;color:#e0e0e0;font-size:12px;font-family:inherit;margin-top:4px}
+.subfolder-new-input{width:100%;padding:4px 8px;background:var(--border);border:1px solid var(--input-border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;margin-top:4px}
 .subfolder-new-input:focus{outline:none;border-color:#4caf50}
 /* ── 一括インポート ── */
 .import-preview{display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;margin:10px 0}
-.import-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#16213e;border-radius:6px;border:1px solid #0f3460}
+.import-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border-radius:6px;border:1px solid var(--border)}
 .import-item-text{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.import-item-cat{padding:4px 8px;background:#0f3460;border:1px solid #1a4080;border-radius:4px;color:#e0e0e0;font-size:12px;font-family:inherit;flex-shrink:0}
-.import-item-remove{background:transparent;border:none;color:#555;cursor:pointer;font-size:13px;padding:0 4px;flex-shrink:0;line-height:1}
+.import-item-cat{padding:4px 8px;background:var(--border);border:1px solid var(--input-border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;flex-shrink:0}
+.import-item-remove{background:transparent;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:0 4px;flex-shrink:0;line-height:1}
 .import-item-remove:hover{color:#e53935}
-.import-paste-area{width:100%;padding:10px 12px;background:#0f3460;border:1px solid #1a4080;border-radius:6px;color:#e0e0e0;font-size:13px;font-family:inherit;resize:vertical;min-height:140px}
-.import-paste-area:focus{outline:none;border-color:#4fc3f7}
+.import-paste-area{width:100%;padding:10px 12px;background:var(--border);border:1px solid var(--input-border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:140px}
+.import-paste-area:focus{outline:none;border-color:var(--accent)}
 .score-badge{font-size:10px;padding:2px 6px;border-radius:6px;white-space:nowrap;margin-left:4px;cursor:default}
 .badge-hot{background:#3b1010;color:#ff6b6b;border:1px solid #7f1d1d}
 .badge-warn{background:#2a2010;color:#ffd54f;border:1px solid #7f6000}
@@ -153,7 +156,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .cat-btn-学習{background:#e65100;color:#ffcc80;border-color:#f4511e}
 .cat-btn-その他{background:#37474f;color:#b0bec5;border-color:#546e7a}
 /* ── 空状態 ── */
-.empty{text-align:center;color:#555;padding:40px 20px;font-size:14px}
+.empty{text-align:center;color:var(--text-faint);padding:40px 20px;font-size:14px}
 /* ── 完了済みチェック ── */
 .done-mark{color:#4caf50;font-size:16px}
 /* ── チャット ── */
@@ -164,109 +167,109 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .chat-row.user{align-self:flex-end;align-items:flex-end}
 .chat-row.ai{align-self:flex-start;align-items:flex-start}
 .chat-bubble{padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-.chat-row.user .chat-bubble{background:#0f3460;color:#e0e0e0;border-bottom-right-radius:4px}
-.chat-row.ai .chat-bubble{background:#16213e;border:1px solid #0f3460;color:#e0e0e0;border-bottom-left-radius:4px}
-.chat-row.ai.thinking .chat-bubble{color:#666}
-.chat-meta{font-size:11px;color:#555;margin-top:3px;padding:0 4px}
-.chat-input-bar{border-top:1px solid #0f3460;padding:12px 16px;display:flex;gap:8px;flex-shrink:0;background:#1a1a2e}
-.chat-input-bar textarea{flex:1;padding:9px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit;resize:none;height:44px;max-height:120px;overflow-y:auto;line-height:1.5}
+.chat-row.user .chat-bubble{background:var(--border);color:var(--text);border-bottom-right-radius:4px}
+.chat-row.ai .chat-bubble{background:var(--surface);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
+.chat-row.ai.thinking .chat-bubble{color:var(--text-dim)}
+.chat-meta{font-size:11px;color:var(--text-faint);margin-top:3px;padding:0 4px}
+.chat-input-bar{border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px;flex-shrink:0;background:var(--bg)}
+.chat-input-bar textarea{flex:1;padding:9px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;resize:none;height:44px;max-height:120px;overflow-y:auto;line-height:1.5}
 .chat-input-bar textarea:focus{outline:none;border-color:#4caf50}
 .chat-actions-bar{display:flex;align-items:center;gap:6px;padding:0 16px 10px;flex-shrink:0}
 /* ── Inbox 入力バー（下固定） ── */
 #pane-inbox.active{display:flex;flex-direction:column;padding:0}
 .inbox-body{flex:1;overflow-y:auto;padding:12px 16px 8px}
-.inbox-add-bar{flex-shrink:0;background:#16213e;border-top:1px solid #0f3460;padding:10px 14px}
+.inbox-add-bar{flex-shrink:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 14px}
 .inbox-add-row{display:flex;gap:8px;margin-bottom:6px}
-.inbox-add-row input{flex:1;padding:9px 12px;background:#1a1a2e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit}
-.inbox-add-row input:focus{outline:none;border-color:#4fc3f7}
+.inbox-add-row input{flex:1;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit}
+.inbox-add-row input:focus{outline:none;border-color:var(--accent)}
 .inbox-tool-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.inbox-due-input{padding:6px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;color:#e0e0e0;font-size:12px;font-family:inherit;width:130px}
-.inbox-due-input:focus{outline:none;border-color:#4fc3f7}
-.inbox-date-hint{font-size:11px;color:#4fc3f7;padding:2px 0;display:none}
+.inbox-due-input{padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;width:130px}
+.inbox-due-input:focus{outline:none;border-color:var(--accent)}
+.inbox-date-hint{font-size:11px;color:var(--accent);padding:2px 0;display:none}
 .inbox-opts-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
-.quick-shortcut{padding:3px 8px;font-size:11px;background:#0f2547;border:1px solid #0f3460;border-radius:5px;color:#a0b4cc;cursor:pointer}
-.quick-shortcut:hover{border-color:#4fc3f7;color:#e0e0e0}
+.quick-shortcut{padding:3px 8px;font-size:11px;background:var(--surface-deep);border:1px solid var(--border);border-radius:5px;color:#a0b4cc;cursor:pointer}
+.quick-shortcut:hover{border-color:var(--accent);color:var(--text)}
 .longterm-toggle{opacity:.45;transition:opacity .15s,background .15s}
-.longterm-toggle.active{opacity:1;background:#0f3460;border-color:#4fc3f7;color:#4fc3f7}
+.longterm-toggle.active{opacity:1;background:var(--border);border-color:var(--accent);color:var(--accent)}
 /* ── ホーム画面 ── */
-.home-header{padding:20px 0 12px;font-size:24px;font-weight:700;color:#e0e0e0}
+.home-header{padding:20px 0 12px;font-size:24px;font-weight:700;color:var(--text)}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.home-card{background:#16213e;border:1px solid #0f3460;border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none;-webkit-user-select:none;outline:none}
-.home-card:hover,.home-card.focused{border-color:#4fc3f7;background:#0f2547}
-.home-card.focused{box-shadow:0 0 0 2px #4fc3f780}
+.home-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none;-webkit-user-select:none;outline:none}
+.home-card:hover,.home-card.focused{border-color:var(--accent);background:var(--surface-deep)}
+.home-card.focused{box-shadow:0 0 0 2px var(--accent-glow)}
 .home-icon{font-size:30px;line-height:1}
-.home-label{font-size:14px;font-weight:600;color:#e0e0e0}
-.home-badge{font-size:11px;padding:2px 9px;border-radius:8px;background:#0f3460;color:#4fc3f7;min-width:28px}
+.home-label{font-size:14px;font-weight:600;color:var(--text)}
+.home-badge{font-size:11px;padding:2px 9px;border-radius:8px;background:var(--border);color:var(--accent);min-width:28px}
 /* ── 重要度 ── */
 .imp-btn{font-size:11px;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid transparent;font-family:inherit;background:transparent;white-space:nowrap;transition:all .15s}
 .imp-btn.imp-high{background:#3d1515;color:#ef9a9a;border-color:#c62828}
 .imp-btn.imp-medium{background:#2a2210;color:#fff176;border-color:#f9a825}
 .imp-btn.imp-low{background:#1a2a10;color:#a5d6a7;border-color:#2e7d32}
-.imp-btn:not(.imp-high):not(.imp-medium):not(.imp-low){color:#555;border-color:#333}
+.imp-btn:not(.imp-high):not(.imp-medium):not(.imp-low){color:var(--text-faint);border-color:#333}
 /* ── 優先順位ページ ── */
-.sort-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#16213e;border-radius:8px;border:1px solid #0f3460;margin-bottom:5px;cursor:default}
-.sort-item.drag-over{border-top:2px solid #4fc3f7;margin-top:-2px}
+.sort-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border);margin-bottom:5px;cursor:default}
+.sort-item.drag-over{border-top:2px solid var(--accent);margin-top:-2px}
 .sort-item.dragging{opacity:.4}
 .sort-drag-handle{color:#444;cursor:grab;padding:0 3px;font-size:16px;flex-shrink:0;user-select:none}
 .sort-drag-handle:active{cursor:grabbing}
-.sort-text{flex:1;font-size:13px;color:#e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sort-score{font-size:11px;color:#555;flex-shrink:0}
+.sort-text{flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sort-score{font-size:11px;color:var(--text-faint);flex-shrink:0}
 /* ── ダッシュボード ── */
 .dash-section{margin-bottom:24px}
-.dash-section-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #0f3460}
-.dash-section-title h2{font-size:13px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.6px}
-.dash-section-title .count{font-size:11px;padding:2px 8px;border-radius:8px;background:#0f3460;color:#4fc3f7}
+.dash-section-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.dash-section-title h2{font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px}
+.dash-section-title .count{font-size:11px;padding:2px 8px;border-radius:8px;background:var(--border);color:var(--accent)}
 .dash-date-group{margin-bottom:14px}
-.dash-date-label{font-size:11px;font-weight:700;color:#4fc3f7;letter-spacing:.5px;margin-bottom:6px;padding:3px 0}
-.dash-item{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#16213e;border-radius:8px;border-left:3px solid transparent;margin-bottom:5px;transition:border-color .15s}
-.dash-item:hover{border-left-color:#4fc3f7}
+.dash-date-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px;margin-bottom:6px;padding:3px 0}
+.dash-item{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface);border-radius:8px;border-left:3px solid transparent;margin-bottom:5px;transition:border-color .15s}
+.dash-item:hover{border-left-color:var(--accent)}
 .dash-item.type-task{border-left-color:#1565c0}
 .dash-item.type-recurring{border-left-color:#6a1b9a}
 .dash-item.type-checklist{border-left-color:#2e7d32}
 .dash-item-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
 .dash-item-body{flex:1;min-width:0}
 .dash-item-text{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-item-meta{font-size:11px;color:#666;margin-top:2px}
+.dash-item-meta{font-size:11px;color:var(--text-dim);margin-top:2px}
 .dash-item-actions{display:flex;gap:5px;flex-shrink:0}
-.cl-mini-bar{height:4px;background:#0f3460;border-radius:2px;margin-top:5px;overflow:hidden}
+.cl-mini-bar{height:4px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden}
 .cl-mini-bar-fill{height:100%;background:#4caf50;border-radius:2px;transition:width .3s}
 /* ── ドラッグ並び替え ── */
 .dash-drag-handle{color:#444;cursor:grab;padding:0 4px;font-size:16px;flex-shrink:0;user-select:none;line-height:1}
 .dash-drag-handle:active{cursor:grabbing}
 .task-drag-handle{color:#444;cursor:grab;padding:0 4px;font-size:16px;flex-shrink:0;user-select:none;line-height:1}
 .task-drag-handle:active{cursor:grabbing}
-.task-item.drag-over{border-top:2px solid #4fc3f7;margin-top:-2px}
+.task-item.drag-over{border-top:2px solid var(--accent);margin-top:-2px}
 .task-item.dragging{opacity:.4}
 .cat-drag-handle{color:#444;cursor:grab;padding:0 6px;font-size:16px;user-select:none;line-height:1;flex-shrink:0}
 .cat-drag-handle:active{cursor:grabbing}
 .cat-section.cat-dragging{opacity:.4}
-.cat-section.drag-over-cat{border-top:2px solid #4fc3f7;margin-top:-2px}
+.cat-section.drag-over-cat{border-top:2px solid var(--accent);margin-top:-2px}
 .dash-item[draggable=true]{transition:border-color .15s,opacity .15s}
-.dash-item.drag-over{border-top:2px solid #4fc3f7;margin-top:-2px}
+.dash-item.drag-over{border-top:2px solid var(--accent);margin-top:-2px}
 .dash-item.dragging{opacity:.4}
 /* ── タスク期日バッジ ── */
 .task-due{font-size:11px;padding:2px 6px;border-radius:6px;background:#1a2a10;color:#69f0ae;border:1px solid #1b5e20;white-space:nowrap;margin-left:4px;cursor:default}
 .task-due.overdue{background:#2a1010;color:#ff7043;border-color:#7f1d1d}
 /* ── 日記/ブログ共通 ── */
 .writing-mode-switch{display:flex;gap:6px;margin-bottom:16px}
-.mode-btn{flex:1;padding:9px;border:1px solid #555;border-radius:8px;background:transparent;color:#aaa;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
-.mode-btn.active{background:#0f3460;border-color:#4fc3f7;color:#4fc3f7;font-weight:600}
+.mode-btn{flex:1;padding:9px;border:1px solid var(--text-faint);border-radius:8px;background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
+.mode-btn.active{background:var(--border);border-color:var(--accent);color:var(--accent);font-weight:600}
 .diary-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.diary-date-picker{background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;padding:8px 12px;font-family:inherit;cursor:pointer}
-.diary-date-picker:focus{outline:none;border-color:#4fc3f7}
-.diary-date-nav{background:transparent;border:1px solid #555;color:#aaa;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;min-height:36px}
-.diary-date-nav:hover{border-color:#4fc3f7;color:#4fc3f7}
-.writing-textarea{width:100%;min-height:240px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:"Meiryo","Segoe UI",sans-serif;padding:14px;resize:vertical;line-height:1.7;transition:border-color .2s}
-.writing-textarea:focus{outline:none;border-color:#4fc3f7}
+.diary-date-picker{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:8px 12px;font-family:inherit;cursor:pointer}
+.diary-date-picker:focus{outline:none;border-color:var(--accent)}
+.diary-date-nav{background:transparent;border:1px solid var(--text-faint);color:var(--text-muted);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;min-height:36px}
+.diary-date-nav:hover{border-color:var(--accent);color:var(--accent)}
+.writing-textarea{width:100%;min-height:240px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:"Meiryo","Segoe UI",sans-serif;padding:14px;resize:vertical;line-height:1.7;transition:border-color .2s}
+.writing-textarea:focus{outline:none;border-color:var(--accent)}
 .diary-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
-.diary-save-status{font-size:12px;color:#666}
+.diary-save-status{font-size:12px;color:var(--text-dim)}
 .diary-history{margin-top:24px}
-.diary-history-title{font-size:13px;color:#666;margin-bottom:10px;font-weight:600;letter-spacing:.5px}
-.diary-history-item{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
-.diary-history-item:hover{border-color:#4fc3f7}
-.diary-history-item.active-item{border-color:#4fc3f7;background:#0f2547}
-.diary-history-date{font-size:13px;font-weight:600;color:#4fc3f7;white-space:nowrap}
-.diary-history-preview{flex:1;font-size:12px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.diary-history-title{font-size:13px;color:var(--text-dim);margin-bottom:10px;font-weight:600;letter-spacing:.5px}
+.diary-history-item{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface);border-radius:8px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.diary-history-item:hover{border-color:var(--accent)}
+.diary-history-item.active-item{border-color:var(--accent);background:var(--surface-deep)}
+.diary-history-date{font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap}
+.diary-history-preview{flex:1;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ── AI提案パネル ── */
 .writing-split-area{display:block}
 .writing-split-area.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
@@ -274,72 +277,76 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 .writing-split-area.split .suggest-panel{margin-top:0;max-height:520px;overflow-y:auto}
 .suggest-panel{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:14px;margin-top:12px}
 .suggest-panel-header{display:flex;align-items:center;gap:6px;margin-bottom:10px}
-.suggest-panel-title{font-size:13px;font-weight:600;color:#4fc3f7;flex:1}
+.suggest-panel-title{font-size:13px;font-weight:600;color:var(--accent);flex:1}
 .suggest-split-btn{display:none}
-.suggest-panel-close{background:transparent;border:none;color:#666;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px}
-.suggest-panel-close:hover{color:#e0e0e0}
-.suggest-output{font-size:13px;line-height:1.7;color:#ccc;white-space:pre-wrap;min-height:40px}
+.suggest-panel-close{background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px}
+.suggest-panel-close:hover{color:var(--text)}
+.suggest-output{font-size:13px;line-height:1.7;color:var(--text-hover);white-space:pre-wrap;min-height:40px}
 /* ── ブログ ── */
 .blog-form-fields{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-.blog-title-input{width:100%;padding:10px 14px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:15px;font-weight:600;font-family:inherit}
-.blog-title-input:focus{outline:none;border-color:#4fc3f7}
-.blog-tags-input{width:100%;padding:8px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit}
-.blog-tags-input:focus{outline:none;border-color:#4fc3f7}
-.blog-list-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
-.blog-list-item:hover{border-color:#4fc3f7}
-.blog-list-item.active-item{border-color:#4fc3f7;background:#0f2547}
-.blog-list-title{font-size:14px;font-weight:600;color:#e0e0e0}
-.blog-list-meta{font-size:11px;color:#555;margin-top:2px}
-.blog-list-preview{font-size:12px;color:#777;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.blog-title-input{width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;font-weight:600;font-family:inherit}
+.blog-title-input:focus{outline:none;border-color:var(--accent)}
+.blog-tags-input{width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit}
+.blog-tags-input:focus{outline:none;border-color:var(--accent)}
+.blog-list-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--surface);border-radius:8px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.blog-list-item:hover{border-color:var(--accent)}
+.blog-list-item.active-item{border-color:var(--accent);background:var(--surface-deep)}
+.blog-list-title{font-size:14px;font-weight:600;color:var(--text)}
+.blog-list-meta{font-size:11px;color:var(--text-faint);margin-top:2px}
+.blog-list-preview{font-size:12px;color:var(--text-dim);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .blog-list-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
 .blog-tag{font-size:11px;padding:1px 7px;border-radius:10px;background:#1a2e1a;color:#69f0ae;border:1px solid #1b5e20}
 /* ── 分割表示ボタン（日記/ブログ） ── */
-.split-view-btn{background:#0f3460;border:1px solid #4fc3f7;color:#4fc3f7;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;transition:all .2s;white-space:nowrap}
-.split-view-btn:hover{background:#1a4080}
-.split-view-btn.active{background:#4fc3f7;color:#000}
+.split-view-btn{background:var(--border);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;transition:all .2s;white-space:nowrap}
+.split-view-btn:hover{background:var(--input-border)}
+.split-view-btn.active{background:var(--accent);color:#000}
 /* ── 語学タブ ── */
 .lang-subtabs{display:flex;gap:6px;margin-bottom:16px}
-.lang-subtab-btn{flex:1;padding:8px;border:1px solid #555;border-radius:8px;background:transparent;color:#aaa;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
-.lang-subtab-btn.active{background:#0f3460;border-color:#4fc3f7;color:#4fc3f7;font-weight:600}
-.lang-practice-box{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:16px;margin-bottom:14px}
-.lang-practice-box h4{font-size:13px;color:#4fc3f7;margin-bottom:10px;font-weight:600}
-.lang-problem{font-size:14px;line-height:1.7;white-space:pre-wrap;color:#e0e0e0}
+.lang-subtab-btn{flex:1;padding:8px;border:1px solid var(--text-faint);border-radius:8px;background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
+.lang-subtab-btn.active{background:var(--border);border-color:var(--accent);color:var(--accent);font-weight:600}
+.lang-practice-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}
+.lang-practice-box h4{font-size:13px;color:var(--accent);margin-bottom:10px;font-weight:600}
+.lang-problem{font-size:14px;line-height:1.7;white-space:pre-wrap;color:var(--text)}
 .lang-answer-row{display:flex;gap:8px;margin-top:10px}
-.lang-answer-input{flex:1;padding:9px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:#e0e0e0;font-size:14px;font-family:inherit}
+.lang-answer-input{flex:1;padding:9px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:var(--text);font-size:14px;font-family:inherit}
 .lang-answer-input:focus{outline:none;border-color:#4caf50}
-.lang-correction{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;line-height:1.7;color:#ccc;white-space:pre-wrap;display:none}
+.lang-correction{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;line-height:1.7;color:var(--text-hover);white-space:pre-wrap;display:none}
 .lang-correction.show{display:block}
 .lang-save-card-row{display:flex;gap:8px;margin-top:10px;align-items:center;display:none}
 .lang-save-card-row.show{display:flex}
-.flashcard-item{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:14px;margin-bottom:10px}
-.flashcard-front{font-size:14px;font-weight:600;color:#e0e0e0;margin-bottom:6px}
-.flashcard-back{font-size:13px;color:#ccc;display:none}
+.flashcard-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px}
+.flashcard-front{font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px}
+.flashcard-back{font-size:13px;color:var(--text-hover);display:none}
 .flashcard-back.show{display:block}
 .flashcard-example{font-size:12px;color:#69f0ae;font-style:italic;margin-top:4px;display:none}
 .flashcard-example.show{display:block}
-.flashcard-meta{font-size:11px;color:#555;margin-top:6px}
+.flashcard-meta{font-size:11px;color:var(--text-faint);margin-top:6px}
 .review-rate-btns{display:flex;gap:8px;margin-top:10px}
 .review-rate-btn{flex:1;padding:9px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;transition:opacity .2s}
 .review-rate-btn:hover{opacity:.85}
 .btn-forget{background:#c62828;color:#fff}
 .btn-hard{background:#f9a825;color:#000}
 .btn-perfect{background:#2e7d32;color:#fff}
-.review-progress{font-size:12px;color:#888;margin-bottom:12px}
+.review-progress{font-size:12px;color:var(--text-dim);margin-bottom:12px}
 /* ── 問題ごとの回答ブロック ── */
-.lang-q-block{background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:14px 16px;margin-bottom:14px}
-.lang-q-label{font-size:13px;font-weight:700;color:#4fc3f7;margin-bottom:8px;letter-spacing:.3px}
-.lang-correction{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;line-height:1.7;color:#ccc;white-space:pre-wrap;display:none}
+.lang-q-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.lang-q-label{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:.3px}
+.lang-correction{background:#0d1f35;border:1px solid #1565c0;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;line-height:1.7;color:var(--text-hover);white-space:pre-wrap;display:none}
 .lang-correction.show{display:block}
 /* ── 議論チャット ── */
-.lang-discuss-wrap{margin-top:12px;border-top:1px solid #0f3460;padding-top:12px}
-.lang-discuss-label{font-size:12px;color:#888;margin-bottom:8px}
+.lang-discuss-wrap{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+.lang-discuss-label{font-size:12px;color:var(--text-dim);margin-bottom:8px}
 .lang-discuss-history{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:300px;overflow-y:auto}
 .lang-discuss-msg{padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-.lang-discuss-user{background:#0f3460;color:#e0e0e0;align-self:flex-end;max-width:85%}
-.lang-discuss-ai{background:#16213e;border:1px solid #0f3460;color:#ccc;align-self:flex-start;max-width:90%}
+.lang-discuss-user{background:var(--border);color:var(--text);align-self:flex-end;max-width:85%}
+.lang-discuss-ai{background:var(--surface);border:1px solid var(--border);color:var(--text-hover);align-self:flex-start;max-width:90%}
 .lang-discuss-input-row{display:flex;gap:8px;align-items:flex-end}
-.lang-discuss-input-row textarea{flex:1;padding:8px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit;resize:none;line-height:1.5}
+.lang-discuss-input-row textarea{flex:1;padding:8px 12px;background:#0a1f0a;border:2px solid #2e7d32;border-radius:8px;color:var(--text);font-size:13px;font-family:inherit;resize:none;line-height:1.5}
 .lang-discuss-input-row textarea:focus{outline:none;border-color:#4caf50}
+/* ── テーマ切り替えボタン ── */
+.theme-btn{padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-muted);font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
+.theme-btn:hover{border-color:var(--accent);color:var(--text)}
+.theme-btn.active{border-color:var(--accent);background:var(--border);color:var(--text);font-weight:600}
 </style>
 </head>
 <body>
@@ -349,7 +356,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
 <!-- ── ホーム ── -->
 <div id="pane-home" class="pane active content">
-  <div class="home-header">qcatch</div>
+  <div class="home-header">ZzzMemo</div>
   <div class="home-grid" id="home-grid">
     <div class="home-card focused" tabindex="0" onclick="switchTab('inbox')">
       <span class="home-icon">📥</span>
@@ -389,7 +396,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   </div>
   <div class="chat-actions-bar">
     <button class="btn btn-ghost btn-sm" onclick="sendBriefing()">☀️ 朝のブリーフィング</button>
-    <span id="chat-key-hint" style="font-size:11px;color:#555"></span>
+    <span id="chat-key-hint" style="font-size:11px;color:var(--text-faint)"></span>
     <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="clearChat()">履歴クリア</button>
   </div>
   <div class="chat-input-bar">
@@ -429,7 +436,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
         <button class="btn btn-warning btn-sm" onclick="runSort()">✨ AI</button>
       </span>
     </div>
-    <span id="sort-status" style="font-size:12px;color:#888"></span>
+    <span id="sort-status" style="font-size:12px;color:var(--text-dim)"></span>
   </div>
 </div>
 
@@ -439,7 +446,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <button class="btn btn-success btn-sm" onclick="bulkComplete()">✓ 選択を完了</button>
     <button class="btn btn-ghost btn-sm" onclick="selectAll('tasks')">全選択</button>
     <button class="btn btn-ghost btn-sm" onclick="clearSelection('tasks')">選択解除</button>
-    <span id="selected-count" style="font-size:12px;color:#888"></span>
+    <span id="selected-count" style="font-size:12px;color:var(--text-dim)"></span>
     <div class="toolbar-right">
       <button class="btn btn-ghost btn-sm" onclick="switchTab('dashboard')">📊 ダッシュボード</button>
       <button class="btn btn-warning btn-sm" onclick="suggestSplits()">✨ AI サブフォルダ提案</button>
@@ -448,13 +455,13 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   </div>
   <div style="margin-bottom:10px">
     <input id="task-search" aria-label="タスク検索" placeholder="🔍 タスクを検索…" oninput="filterTasks(this.value)"
-      style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #0f3460;border-radius:8px;color:#e0e0e0;font-size:13px;font-family:inherit">
+      style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
   </div>
   <div id="tasks-list"></div>
   <!-- ゴミ箱（折りたたみ） -->
   <div id="trash-section" style="display:none;margin-top:20px">
-    <div style="border-top:1px solid #0f3460;padding-top:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:13px;color:#888">🗑 ゴミ箱（完了・削除済み）</span>
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--text-dim)">🗑 ゴミ箱（完了・削除済み）</span>
       <button class="btn btn-ghost btn-sm" onclick="loadTrash()">更新</button>
     </div>
     <div id="trash-list" class="task-list"></div>
@@ -463,7 +470,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
 <!-- ── 長期タスク ── -->
 <div id="pane-longterm" class="pane content">
-  <div style="padding:8px 14px;background:#16213e;border:1px solid #0f3460;border-radius:8px;font-size:13px;color:#888;margin-bottom:14px">
+  <div style="padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-dim);margin-bottom:14px">
     📌 件数カウント対象外の長期・将来タスク。タスクタブの <strong>🗂</strong> ボタンで追加できます。
   </div>
   <div id="longterm-list"></div>
@@ -475,7 +482,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <h3>新しいチェックリスト</h3>
     <input id="cl-name" aria-label="チェックリスト名" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
     <div class="form-row" style="align-items:center;margin-bottom:10px">
-      <label style="font-size:12px;color:#888;white-space:nowrap;margin-right:6px">期日（任意）</label>
+      <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">期日（任意）</label>
       <input id="cl-due-date" aria-label="期日" type="date" class="form-input" style="margin:0;flex:1">
       <input id="cl-due-time" aria-label="時刻（任意）" type="time" step="300" class="form-input" style="margin:0;width:110px" placeholder="時刻（任意）">
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cl-due-date').value='';document.getElementById('cl-due-time').value=''">クリア</button>
@@ -510,7 +517,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       </select>
     </div>
     <div id="rec-weekly-ui" style="display:none;margin-bottom:10px">
-      <div style="font-size:12px;color:#888;margin-bottom:6px">曜日を選択:</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">曜日を選択:</div>
       <div class="weekday-picker">
         <button class="wd-btn" data-wd="0">月</button>
         <button class="wd-btn" data-wd="1">火</button>
@@ -522,7 +529,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       </div>
     </div>
     <div id="rec-monthly-ui" style="display:none;margin-bottom:10px">
-      <div style="font-size:12px;color:#888;margin-bottom:6px">毎月何日:</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">毎月何日:</div>
       <input id="rec-dom" aria-label="毎月何日" type="number" min="1" max="31" class="form-input" style="width:100px" placeholder="日">
     </div>
     <button class="btn btn-primary" onclick="createRecurring()">登録</button>
@@ -532,6 +539,18 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
 <!-- ── 設定 ── -->
 <div id="pane-settings" class="pane content">
+  <div class="form-card">
+    <h3>テーマ</h3>
+    <div class="setting-row" style="border-bottom:none">
+      <div class="setting-label">背景テーマ</div>
+      <div class="setting-value" style="display:flex;gap:8px">
+        <button class="theme-btn" data-theme="" onclick="applyTheme('')">⬛ ブラック</button>
+        <button class="theme-btn" data-theme="navy" onclick="applyTheme('navy')">🌊 ネイビー</button>
+        <button class="theme-btn" data-theme="white" onclick="applyTheme('white')">☀️ ホワイト</button>
+      </div>
+    </div>
+  </div>
+
   <div class="form-card">
     <h3>AI バックエンド設定</h3>
     <div class="setting-row">
@@ -561,7 +580,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
   <div class="form-card">
     <h3>Gemini API キー</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:10px">環境変数 GEMINI_API_KEY が未設定の場合はここに入力してください。ブラウザのローカルストレージに保存されます。</p>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">環境変数 GEMINI_API_KEY が未設定の場合はここに入力してください。ブラウザのローカルストレージに保存されます。</p>
     <div style="display:flex;gap:8px">
       <input id="settings-api-key" aria-label="Gemini APIキー" type="password" class="form-input" style="margin:0;flex:1" placeholder="AIzaSy…">
       <button class="btn btn-primary" onclick="saveApiKey()">保存</button>
@@ -571,7 +590,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
   <div class="form-card">
     <h3>タグ変更提案（AI）</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:12px">
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">
       既存のタスクのカテゴリを AI が見直し、変更案を提示します。承認したもののみ反映されます。
     </p>
     <button class="btn btn-warning" onclick="suggestTags()">🔍 タグ変更を提案</button>
@@ -579,26 +598,26 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 
   <div class="form-card">
     <h3>エクスポート</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:12px">todo タスクをカテゴリ別 Markdown でダウンロードします。</p>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">todo タスクをカテゴリ別 Markdown でダウンロードします。</p>
     <a href="/api/export/markdown" download="tasks.md" class="btn btn-ghost btn-sm">⬇ Markdown でダウンロード</a>
   </div>
 
   <div class="form-card">
     <h3>一括インポート</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:12px">Claude・ChatGPT などの AI が生成したタスクリストをそのまま貼り付けて一括登録できます。</p>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">Claude・ChatGPT などの AI が生成したタスクリストをそのまま貼り付けて一括登録できます。</p>
     <button class="btn btn-primary" onclick="openImportModal()">📋 一括インポートを開く</button>
   </div>
 
   <!-- Google 連携 -->
   <div class="form-card">
     <h3>Google 連携</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:12px">
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">
       期日付きタスクを Google Calendar（時刻あり）または Google Tasks（終日）に同期します。<br>
-      事前に <code style="background:#0f3460;padding:1px 5px;border-radius:3px">client_secret.json</code> をプロジェクトルートに配置してください。
+      事前に <code style="background:var(--border);padding:1px 5px;border-radius:3px">client_secret.json</code> をプロジェクトルートに配置してください。
     </p>
-    <div id="google-auth-status" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:#16213e;border-radius:8px;border:1px solid #0f3460">
+    <div id="google-auth-status" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
       <span id="google-auth-indicator" style="font-size:20px">⏳</span>
-      <span id="google-auth-label" style="font-size:13px;color:#888">確認中…</span>
+      <span id="google-auth-label" style="font-size:13px;color:var(--text-dim)">確認中…</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button id="google-login-btn" class="btn btn-primary btn-sm" onclick="window.location.href='/api/auth/login'" style="display:none">🔑 Googleでログイン</button>
@@ -607,10 +626,10 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       <button id="google-pull-btn" class="btn btn-ghost btn-sm" onclick="runGooglePull()" style="display:none">⬇ Pull のみ</button>
       <button id="google-logout-btn" class="btn btn-danger btn-sm" onclick="googleLogout()" style="display:none">ログアウト</button>
     </div>
-    <div id="google-sync-log" style="font-size:12px;color:#888;margin-top:10px"></div>
+    <div id="google-sync-log" style="font-size:12px;color:var(--text-dim);margin-top:10px"></div>
     <div id="google-autosync-section" style="display:none;margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <label style="font-size:13px;color:#aaa">自動同期間隔:</label>
-      <select id="sync-interval" style="background:#16213e;border:1px solid #0f3460;color:#e0e0e0;border-radius:6px;padding:4px 10px;font-size:13px">
+      <label style="font-size:13px;color:var(--text-muted)">自動同期間隔:</label>
+      <select id="sync-interval" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 10px;font-size:13px">
         <option value="15">15分</option>
         <option value="30" selected>30分</option>
         <option value="60">1時間</option>
@@ -622,7 +641,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
     <!-- タスクリスト対応表 -->
     <div id="google-tasklist-map-section" style="display:none;margin-top:16px">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 カテゴリ → Google Tasks リスト 対応</div>
-      <div style="font-size:12px;color:#888;margin-bottom:10px">カテゴリごとに振り分け先リストを指定できます。未指定はカテゴリ名で新規作成します。</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">カテゴリごとに振り分け先リストを指定できます。未指定はカテゴリ名で新規作成します。</div>
       <table id="tasklist-map-table" style="width:100%;border-collapse:collapse;font-size:13px"></table>
       <button class="btn btn-primary btn-sm" onclick="saveTasklistMap()" style="margin-top:10px">💾 対応を保存</button>
     </div>
@@ -715,7 +734,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       <input type="date" id="lang-date" class="diary-date-picker" aria-label="練習日" style="font-size:13px">
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('lang-date').value=todayStr();loadLangPractice()">今日</button>
       <button class="btn btn-primary btn-sm" onclick="loadLangPractice()">🤖 問題を生成</button>
-      <span id="lang-practice-status" style="font-size:12px;color:#888"></span>
+      <span id="lang-practice-status" style="font-size:12px;color:var(--text-dim)"></span>
     </div>
     <div id="lang-practice-output" class="lang-practice-box" style="display:none">
       <h4>📝 英語練習問題</h4>
@@ -823,7 +842,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <div id="modal-tags" class="modal-overlay">
   <div class="modal">
     <h2>タグ変更の提案</h2>
-    <p style="font-size:13px;color:#888;margin-bottom:16px">チェックしたものだけ変更されます。</p>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px">チェックしたものだけ変更されます。</p>
     <div id="suggestions-list"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
@@ -836,23 +855,23 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <div id="modal-import" class="modal-overlay" onclick="if(event.target===this)closeImportModal()">
   <div class="modal" style="max-width:680px">
     <h2>📋 一括インポート</h2>
-    <p style="font-size:13px;color:#888;margin-bottom:10px">
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
       Claude・ChatGPT などの AI 出力をそのまま貼り付けると、タスクを自動解析します。<br>
-      対応形式: 箇条書き（<code style="background:#0f3460;padding:1px 5px;border-radius:3px">-</code> <code style="background:#0f3460;padding:1px 5px;border-radius:3px">*</code> <code style="background:#0f3460;padding:1px 5px;border-radius:3px">1.</code>）・チェックボックス（<code style="background:#0f3460;padding:1px 5px;border-radius:3px">- [ ]</code>）・プレーンテキスト（1行1タスク）<br>
-      行末に <code style="background:#0f3460;padding:1px 5px;border-radius:3px">（仕事）</code> <code style="background:#0f3460;padding:1px 5px;border-radius:3px">（買い物）</code> などを付けるとカテゴリを自動認識します。
+      対応形式: 箇条書き（<code style="background:var(--border);padding:1px 5px;border-radius:3px">-</code> <code style="background:var(--border);padding:1px 5px;border-radius:3px">*</code> <code style="background:var(--border);padding:1px 5px;border-radius:3px">1.</code>）・チェックボックス（<code style="background:var(--border);padding:1px 5px;border-radius:3px">- [ ]</code>）・プレーンテキスト（1行1タスク）<br>
+      行末に <code style="background:var(--border);padding:1px 5px;border-radius:3px">（仕事）</code> <code style="background:var(--border);padding:1px 5px;border-radius:3px">（買い物）</code> などを付けるとカテゴリを自動認識します。
     </p>
     <textarea id="import-textarea" class="import-paste-area"
       placeholder="ここに AI の出力を貼り付けてください…&#10;&#10;例:&#10;- プロジェクト計画書を作成する（仕事）&#10;- 牛乳とパンを買う（買い物）&#10;- TypeScript の基礎を学ぶ（学習）&#10;- 週次レポートを提出する"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
       <button class="btn btn-primary" onclick="previewImport()">📋 解析してプレビュー</button>
       <button class="btn btn-ghost btn-sm" onclick="clearImport()">クリア</button>
-      <span style="font-size:12px;color:#555;margin-left:auto">Ctrl+V で貼り付け → 解析</span>
+      <span style="font-size:12px;color:var(--text-faint);margin-left:auto">Ctrl+V で貼り付け → 解析</span>
     </div>
 
-    <div id="import-preview-section" style="display:none;margin-top:16px;border-top:1px solid #0f3460;padding-top:14px">
+    <div id="import-preview-section" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span id="import-count" style="font-size:14px;font-weight:700;color:#4fc3f7"></span>
-        <span style="font-size:12px;color:#666">カテゴリを変更して「追加」を実行できます</span>
+        <span id="import-count" style="font-size:14px;font-weight:700;color:var(--accent)"></span>
+        <span style="font-size:12px;color:var(--text-dim)">カテゴリを変更して「追加」を実行できます</span>
       </div>
       <div id="import-preview" class="import-preview"></div>
     </div>
@@ -868,10 +887,10 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <div id="modal-subfolder" class="modal-overlay" onclick="if(event.target===this)closeSubfolderModal()">
   <div class="modal" style="max-width:380px">
     <h2>📁 サブフォルダを設定</h2>
-    <p id="modal-subfolder-info" style="font-size:12px;color:#888;margin-bottom:12px"></p>
+    <p id="modal-subfolder-info" style="font-size:12px;color:var(--text-dim);margin-bottom:12px"></p>
     <div id="modal-subfolder-list" style="margin-bottom:8px"></div>
-    <div style="border-top:1px solid #0f3460;padding-top:10px">
-      <div style="font-size:11px;color:#888;margin-bottom:4px">新しいサブフォルダを作成:</div>
+    <div style="border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">新しいサブフォルダを作成:</div>
       <div style="display:flex;gap:6px">
         <input id="modal-subfolder-new" class="form-input subfolder-new-input" style="margin:0;flex:1" placeholder="フォルダ名を入力…"
           onkeydown="if(event.key==='Enter'){saveSubfolder(this.value.trim());}" onclick="event.stopPropagation()">
@@ -889,7 +908,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
 <div id="modal-splits" class="modal-overlay">
   <div class="modal">
     <h2>✨ AI サブフォルダ提案</h2>
-    <p style="font-size:13px;color:#888;margin-bottom:16px">チェックしたタスクにサブフォルダを付けます。同じサブフォルダのタスクはグループ化されます。</p>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px">チェックしたタスクにサブフォルダを付けます。同じサブフォルダのタスクはグループ化されます。</p>
     <div id="splits-list"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeSplitsModal()">キャンセル</button>
@@ -915,7 +934,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       </select>
     </div>
     <div id="redit-weekly-ui" style="display:none;margin-bottom:10px">
-      <div style="font-size:12px;color:#888;margin-bottom:6px">曜日を選択:</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">曜日を選択:</div>
       <div class="weekday-picker">
         <button class="redit-wd-btn wd-btn" data-wd="0">月</button>
         <button class="redit-wd-btn wd-btn" data-wd="1">火</button>
@@ -927,7 +946,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
       </div>
     </div>
     <div id="redit-monthly-ui" style="display:none;margin-bottom:10px">
-      <div style="font-size:12px;color:#888;margin-bottom:6px">毎月何日:</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">毎月何日:</div>
       <input id="redit-dom" aria-label="毎月何日" type="number" min="1" max="31" class="form-input" style="width:100px" placeholder="日">
     </div>
     <div class="modal-footer">
@@ -937,6 +956,14 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:#1a1a2e;color:#e0e0e0
   </div>
 </div>
 
+<script>
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('zzzmemo_theme', t);
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === t));
+}
+(function(){applyTheme(localStorage.getItem('zzzmemo_theme') || '');})();
+</script>
 <script type="module" src="/static/js/app.js"></script>
 
 <!-- ── ボトムナビ ── -->

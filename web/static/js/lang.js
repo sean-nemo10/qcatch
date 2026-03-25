@@ -358,7 +358,7 @@ export async function loadAllCards() {
       <div style="display:flex;align-items:flex-start;gap:8px">
         <div style="flex:1">
           <div class="flashcard-front">${esc(c.front)}</div>
-          <div style="font-size:13px;color:#aaa;margin-top:4px">${esc(c.back)}</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${esc(c.back)}</div>
           ${c.example ? `<div style="font-size:12px;color:#69f0ae;font-style:italic;margin-top:3px">${esc(c.example)}</div>` : ''}
         </div>
         <button class="btn btn-danger btn-sm" onclick="deleteCard('${esc(c.id)}')">🗑</button>
