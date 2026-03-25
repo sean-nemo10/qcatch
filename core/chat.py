@@ -97,6 +97,7 @@ def _build_system_prompt(data: AppData) -> str:
         "- 「なぜそれが重要か」「次に何をすべきか」を必ず含めること。\n"
         "- タスクIDは内部処理にのみ使用し、ユーザーへの返答には絶対に含めないこと。\n"
         "- タスクを完了する際は先に get_tasks でIDを確認してから complete_task を使うこと。\n"
+        "- 期日・重要度・カテゴリの変更は先に get_tasks でIDを確認してから update_task を使うこと。\n"
         "- 状況を把握したい場合は get_analysis を使うと滞留・傾向・優先度の分析データが得られる。\n"
         "- get_tasks で status=done は絶対に指定しないこと。完了タスクは原則として参照しない。\n"
         "- 今日/今週の予定を聞かれたら get_calendar_events を使うこと（Calendar 連携済みの場合のみ）。\n\n"
@@ -197,6 +198,40 @@ def _build_tools():
                             description="取得する日数（デフォルト7、最大30）",
                         ),
                     },
+                ),
+            ),
+            types.FunctionDeclaration(
+                name="update_task",
+                description=(
+                    "タスクの期日・重要度・カテゴリを変更する。"
+                    "先に get_tasks でIDを確認してから使うこと。"
+                    "「〇〇の期日を明日に変更して」「△△を高優先度にして」などに使う。"
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "task_id": types.Schema(
+                            type=types.Type.STRING,
+                            description="変更するタスクのID（先頭8文字でも可）",
+                        ),
+                        "due_date": types.Schema(
+                            type=types.Type.STRING,
+                            description=(
+                                "新しい期日（ISO 8601形式: YYYY-MM-DDTHH:MM:SS）。"
+                                "「明日」「来週金曜」等は今日の日付を基準に変換して設定する。"
+                                "期日を削除する場合は 'clear' を指定する。"
+                            ),
+                        ),
+                        "importance": types.Schema(
+                            type=types.Type.STRING,
+                            description="重要度: high / medium / low",
+                        ),
+                        "category": types.Schema(
+                            type=types.Type.STRING,
+                            description="カテゴリ: 仕事 / プライベート / 買い物 / 学習 / その他",
+                        ),
+                    },
+                    required=["task_id"],
                 ),
             ),
             types.FunctionDeclaration(
@@ -452,6 +487,76 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             f"直近{days}日間の日記（{len(recent)}件）:\n\n" + "\n\n".join(parts),
             actions,
         )
+
+    elif name == "update_task":
+        task_id = args.get("task_id", "").strip()
+        if not task_id:
+            return (
+                "タスクIDが指定されていません。get_tasks でIDを確認してください。",
+                actions,
+            )
+
+        target = next(
+            (t for t in data.tasks if t.id == task_id or t.id.startswith(task_id)),
+            None,
+        )
+        if not target:
+            return (
+                "該当するタスクIDが見つかりませんでした。get_tasks でIDを確認してください。",
+                actions,
+            )
+
+        changes = []
+
+        due_date_str = args.get("due_date")
+        if due_date_str is not None:
+            if due_date_str.lower() == "clear":
+                target.due_date = None
+                changes.append("期日を削除")
+            else:
+                try:
+                    target.due_date = datetime.fromisoformat(due_date_str)
+                    changes.append(
+                        f"期日を {target.due_date.strftime('%Y/%m/%d')} に変更"
+                    )
+                except (ValueError, TypeError):
+                    return (
+                        "期日の形式が正しくありません（YYYY-MM-DDTHH:MM:SS 形式）。",
+                        actions,
+                    )
+
+        importance = args.get("importance")
+        if importance is not None:
+            if importance not in ("high", "medium", "low"):
+                return (
+                    "重要度は high / medium / low のいずれかで指定してください。",
+                    actions,
+                )
+            target.importance = importance
+            label = {"high": "高", "medium": "中", "low": "低"}[importance]
+            changes.append(f"重要度を「{label}」に変更")
+
+        category = args.get("category")
+        if category is not None:
+            if category not in CATEGORIES:
+                return (
+                    f"カテゴリは {' / '.join(CATEGORIES)} のいずれかで指定してください。",
+                    actions,
+                )
+            target.category = category
+            if target.status == "inbox":
+                target.status = "todo"
+            changes.append(f"カテゴリを「{category}」に変更")
+
+        if not changes:
+            return (
+                "変更内容が指定されていません（due_date / importance / category のいずれかを指定してください）。",
+                actions,
+            )
+
+        storage.save_data(data)
+        actions.append({"type": "refresh"})
+        return f"「{target.text}」を更新しました: {' / '.join(changes)}", actions
 
     elif name == "get_calendar_events":
         days = max(1, min(int(args.get("days", 1)), 30))
