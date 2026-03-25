@@ -185,6 +185,37 @@ def _build_tools():
                     },
                 ),
             ),
+            types.FunctionDeclaration(
+                name="prepare_calendar_event",
+                description=(
+                    "ユーザーが時間帯のカレンダー予定（ミーティング・アポイント等）を追加したい場合に使う。"
+                    "確認画面を表示し、ユーザーが内容を確認・修正してから追加できる。"
+                    "タイトル・開始日時が揃っている場合のみ呼び出すこと。"
+                    "情報が不足している場合はユーザーに質問して補完してから呼び出すこと。"
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "title": types.Schema(
+                            type=types.Type.STRING,
+                            description="イベントのタイトル",
+                        ),
+                        "start_dt": types.Schema(
+                            type=types.Type.STRING,
+                            description="開始日時 ISO 8601形式 (YYYY-MM-DDTHH:MM:SS)",
+                        ),
+                        "end_dt": types.Schema(
+                            type=types.Type.STRING,
+                            description="終了日時 ISO 8601形式。省略時は開始から1時間後。",
+                        ),
+                        "description": types.Schema(
+                            type=types.Type.STRING,
+                            description="イベントの説明（任意）",
+                        ),
+                    },
+                    required=["title", "start_dt"],
+                ),
+            ),
         ]
     )
 
@@ -388,6 +419,48 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
         ]
         return (
             f"直近{days}日間の日記（{len(recent)}件）:\n\n" + "\n\n".join(parts),
+            actions,
+        )
+
+    elif name == "prepare_calendar_event":
+        from datetime import timedelta
+
+        title = args.get("title", "").strip()
+        start_dt_str = args.get("start_dt", "")
+        end_dt_str = args.get("end_dt", "")
+        description = args.get("description", "")
+
+        if not title or not start_dt_str:
+            return "タイトルと開始日時が必要です。", actions
+        try:
+            start_dt = datetime.fromisoformat(start_dt_str)
+        except ValueError:
+            return (
+                "開始日時の形式が正しくありません（YYYY-MM-DDTHH:MM:SS 形式で指定してください）。",
+                actions,
+            )
+
+        if end_dt_str:
+            try:
+                end_dt = datetime.fromisoformat(end_dt_str)
+            except ValueError:
+                end_dt = start_dt + timedelta(hours=1)
+        else:
+            end_dt = start_dt + timedelta(hours=1)
+
+        actions.append(
+            {
+                "type": "calendar_confirm",
+                "event": {
+                    "title": title,
+                    "start_dt": start_dt.isoformat(),
+                    "end_dt": end_dt.isoformat(),
+                    "description": description,
+                },
+            }
+        )
+        return (
+            "カレンダー追加の確認画面を表示しました。ユーザーが内容を確認・修正して承認すると追加されます。",
             actions,
         )
 

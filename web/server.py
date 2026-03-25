@@ -661,6 +661,13 @@ def apply_splits(body: ApplySplitsIn):
 # ── /api/chat ─────────────────────────────────────────────────────────────────
 
 
+class CalendarEventIn(BaseModel):
+    title: str
+    start_dt: str
+    end_dt: str
+    description: Optional[str] = ""
+
+
 class ChatIn(BaseModel):
     message: str
     api_key: Optional[str] = None  # 設定画面から渡す（env変数の代替）
@@ -1340,6 +1347,30 @@ def sync_all():
         raise HTTPException(401, str(e))
     except Exception as e:
         logger.error(f"sync all エラー: {e}", exc_info=True)
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/calendar/add_event")
+def add_calendar_event(body: CalendarEventIn):
+    """チャットの確認UIから呼ばれ、Google Calendar にイベントを直接追加する。"""
+    from core import google_sync
+
+    if not google_sync.is_authenticated():
+        raise HTTPException(
+            401, "Google認証が必要です。設定タブからログインしてください。"
+        )
+    try:
+        start_dt = datetime.fromisoformat(body.start_dt)
+        end_dt = datetime.fromisoformat(body.end_dt)
+        event_id = google_sync.add_calendar_event(
+            body.title, start_dt, end_dt, body.description or ""
+        )
+        logger.info(f"カレンダーイベント追加: {body.title} ({body.start_dt})")
+        return {"ok": True, "event_id": event_id}
+    except RuntimeError as e:
+        raise HTTPException(401, str(e))
+    except Exception as e:
+        logger.error(f"カレンダーイベント追加エラー: {e}", exc_info=True)
         raise HTTPException(500, str(e))
 
 

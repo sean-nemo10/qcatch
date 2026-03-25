@@ -205,6 +205,33 @@ def pull_all(data) -> int:
 # ── Calendar ─────────────────────────────────────────────────────────────────
 
 
+def add_calendar_event(
+    title: str, start_dt: datetime, end_dt: datetime, description: str = ""
+) -> str:
+    """Google Calendar にイベントを直接追加する。戻り値: event_id。"""
+    creds = get_credentials()
+    if not creds:
+        raise RuntimeError(
+            "Google 認証が必要です。/api/auth/login にアクセスしてください。"
+        )
+    from googleapiclient.discovery import build
+
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=timezone.utc)
+
+    service = build("calendar", "v3", credentials=creds)
+    body = {
+        "summary": title,
+        "description": description,
+        "start": {"dateTime": start_dt.isoformat(), "timeZone": "Asia/Tokyo"},
+        "end": {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Tokyo"},
+    }
+    ev = service.events().insert(calendarId="primary", body=body).execute()
+    return ev["id"]
+
+
 def _sync_to_calendar(creds, task) -> str:
     from googleapiclient.discovery import build
 
