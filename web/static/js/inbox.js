@@ -74,6 +74,8 @@ export async function loadInbox() {
   const data = await api('GET', '/api/tasks?status=inbox');
   const list = document.getElementById('inbox-list');
   const tasks = data.tasks;
+  const countEl = document.getElementById('home-inbox-count');
+  if (countEl) countEl.textContent = tasks.length;
   if (!tasks.length) { list.innerHTML = '<div class="empty">inbox は空です ✓</div>'; return; }
   list.innerHTML = tasks.map(t => `
     <div class="task-item" id="ti-${t.id}" style="flex-direction:column;align-items:flex-start;gap:6px">
@@ -114,3 +116,4 @@ export async function runSort() {
   }
 }
 window.runSort = runSort;
+

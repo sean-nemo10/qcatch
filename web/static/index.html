@@ -7,9 +7,9 @@
 <title>ZzzMemo</title>
 <link rel="manifest" href="/manifest.json">
 <style>
-:root{--bg:#0d0d0d;--surface:#161616;--border:#282828;--surface-deep:#111;--divider:#1e1e1e;--input-border:#383838;--text:#e0e0e0;--text-muted:#999;--text-dim:#777;--text-faint:#555;--text-hover:#ccc;--overlay:rgba(0,0,0,.85);--shadow:rgba(0,0,0,.7);--accent:#4fc3f7;--accent-glow:#4fc3f780}
-[data-theme=navy]{--bg:#1a1a2e;--surface:#16213e;--border:#0f3460;--surface-deep:#0f2547;--divider:#1a2a4a;--input-border:#1a4080;--text:#e0e0e0;--text-muted:#aaa;--text-dim:#666;--text-faint:#555;--text-hover:#ccc;--overlay:rgba(0,0,0,.7);--shadow:rgba(0,0,0,.5);--accent:#4fc3f7;--accent-glow:#4fc3f780}
-[data-theme=white]{--bg:#f8f9fa;--surface:#fff;--border:#dee2e6;--surface-deep:#e9ecef;--divider:#ced4da;--input-border:#adb5bd;--text:#212529;--text-muted:#6c757d;--text-dim:#868e96;--text-faint:#adb5bd;--text-hover:#343a40;--overlay:rgba(0,0,0,.5);--shadow:rgba(0,0,0,.15);--accent:#1976d2;--accent-glow:#1976d280}
+:root{--bg:#0d0d0d;--surface:#161616;--border:#282828;--surface-deep:#111;--divider:#1e1e1e;--input-border:#383838;--text:#e0e0e0;--text-muted:#999;--text-dim:#777;--text-faint:#555;--text-hover:#ccc;--overlay:rgba(0,0,0,.85);--shadow:rgba(0,0,0,.7);--accent:#818cf8;--accent-glow:#818cf880}
+[data-theme=navy]{--bg:#1a1a2e;--surface:#16213e;--border:#0f3460;--surface-deep:#0f2547;--divider:#1a2a4a;--input-border:#1a4080;--text:#e0e0e0;--text-muted:#aaa;--text-dim:#666;--text-faint:#555;--text-hover:#ccc;--overlay:rgba(0,0,0,.7);--shadow:rgba(0,0,0,.5);--accent:#60a5fa;--accent-glow:#60a5fa80}
+[data-theme=white]{--bg:#f8f9fa;--surface:#fff;--border:#dee2e6;--surface-deep:#e9ecef;--divider:#ced4da;--input-border:#adb5bd;--text:#212529;--text-muted:#6c757d;--text-dim:#868e96;--text-faint:#adb5bd;--text-hover:#343a40;--overlay:rgba(0,0,0,.5);--shadow:rgba(0,0,0,.15);--accent:#3b82f6;--accent-glow:#3b82f680}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
 /* ── ボトムナビ ── */
@@ -17,7 +17,7 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 .nav-btn{flex:1;background:transparent;border:none;color:var(--text-dim);font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:color .2s;font-family:inherit;border-top:2px solid transparent;margin-top:-2px}
 .nav-btn:hover{color:var(--text-hover)}
 .nav-btn.active{color:var(--accent);border-top-color:var(--accent)}
-.nav-icon{font-size:20px;line-height:1}
+.nav-icon{display:flex;align-items:center;justify-content:center;width:20px;height:20px}
 .nav-label{font-size:10px}
 /* ── メインコンテンツ ── */
 .content{flex:1;overflow-y:auto;padding:16px 20px;padding-bottom:max(16px, env(safe-area-inset-bottom))}
@@ -176,7 +176,6 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 .chat-input-bar textarea:focus{outline:none;border-color:#4caf50}
 .chat-actions-bar{display:flex;align-items:center;gap:6px;padding:0 16px 10px;flex-shrink:0}
 /* ── Inbox 入力バー（下固定） ── */
-#pane-inbox.active{display:flex;flex-direction:column;padding:0}
 .inbox-body{flex:1;overflow-y:auto;padding:12px 16px 8px}
 .inbox-add-bar{flex-shrink:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 14px}
 .inbox-add-row{display:flex;gap:8px;margin-bottom:6px}
@@ -192,12 +191,23 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 .longterm-toggle{opacity:.45;transition:opacity .15s,background .15s}
 .longterm-toggle.active{opacity:1;background:var(--border);border-color:var(--accent);color:var(--accent)}
 /* ── ホーム画面 ── */
-.home-header{padding:20px 0 12px;font-size:24px;font-weight:700;color:var(--text)}
+#pane-home.active{display:flex;flex-direction:column;padding:0}
+.home-body{flex:1;overflow-y:auto}
+.home-top{padding:14px 16px 8px;display:flex;align-items:center;gap:10px}
+.home-appname{font-size:20px;font-weight:700;color:var(--text);flex:1}
+.home-inbox-pill{display:flex;align-items:center;gap:5px;padding:4px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px}
+.home-inbox-num{font-size:16px;font-weight:700;color:var(--accent);line-height:1.2}
+.home-inbox-lbl{font-size:11px;color:var(--text-muted)}
+.home-inbox-area{padding:0 16px 8px}
+.home-nav-section{padding:10px 16px 14px;border-top:1px solid var(--divider)}
+.home-nav-title{font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+/* ── Auto split banner ── */
+#auto-split-banner{background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:9px 14px;margin-bottom:10px;font-size:13px;color:var(--accent);cursor:pointer;align-items:center;gap:8px}#auto-split-banner:hover{background:var(--border)}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .home-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none;-webkit-user-select:none;outline:none}
 .home-card:hover,.home-card.focused{border-color:var(--accent);background:var(--surface-deep)}
 .home-card.focused{box-shadow:0 0 0 2px var(--accent-glow)}
-.home-icon{font-size:30px;line-height:1}
+.home-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px}
 .home-label{font-size:14px;font-weight:600;color:var(--text)}
 .home-badge{font-size:11px;padding:2px 9px;border-radius:8px;background:var(--border);color:var(--accent);min-width:28px}
 /* ── 重要度 ── */
@@ -355,35 +365,63 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 <div id="status-bar" class="status-bar"></div>
 
 <!-- ── ホーム ── -->
-<div id="pane-home" class="pane active content">
-  <div class="home-header">ZzzMemo</div>
-  <div class="home-grid" id="home-grid">
-    <div class="home-card focused" tabindex="0" onclick="switchTab('inbox')">
-      <span class="home-icon">📥</span>
-      <span class="home-label">Inbox</span>
-      <span class="home-badge" id="home-badge-inbox">0</span>
+<div id="pane-home" class="pane active">
+  <div class="home-body">
+    <div class="home-top">
+      <span class="home-appname">ZzzMemo</span>
+      <div class="home-inbox-pill">
+        <span class="home-inbox-num" id="home-inbox-count">0</span>
+        <span class="home-inbox-lbl">inbox</span>
+      </div>
     </div>
-    <div class="home-card" tabindex="0" onclick="switchTab('tasks')">
-      <span class="home-icon">✅</span>
-      <span class="home-label">タスク</span>
-      <span class="home-badge" id="home-badge-tasks">0</span>
+    <div class="home-inbox-area">
+      <div id="inbox-list" class="task-list"></div>
     </div>
-    <div class="home-card" tabindex="0" onclick="switchTab('longterm')">
-      <span class="home-icon">🗂</span>
-      <span class="home-label">長期タスク</span>
+    <div class="home-nav-section">
+      <div class="home-nav-title">移動する</div>
+      <div class="home-grid" id="home-grid">
+        <div class="home-card focused" tabindex="0" onclick="switchTab('tasks')">
+          <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span>
+          <span class="home-label">タスク</span>
+          <span class="home-badge" id="home-badge-tasks">0</span>
+        </div>
+        <div class="home-card" tabindex="0" onclick="switchTab('longterm')">
+          <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></span>
+          <span class="home-label">長期タスク</span>
+        </div>
+        <div class="home-card" tabindex="0" onclick="switchTab('checklists')">
+          <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect width="6" height="4" x="9" y="3" rx="1"/><path d="M9 12h6"/><path d="M9 16h6"/></svg></span>
+          <span class="home-label">チェックリスト</span>
+        </div>
+        <div class="home-card" tabindex="0" onclick="switchTab('recurring')">
+          <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>
+          <span class="home-label">定期タスク</span>
+        </div>
+        <div class="home-card" tabindex="0" onclick="switchTab('settings')" style="grid-column:span 2">
+          <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg></span>
+          <span class="home-label">設定</span>
+        </div>
+      </div>
     </div>
-    <div class="home-card" tabindex="0" onclick="switchTab('checklists')">
-      <span class="home-icon">📋</span>
-      <span class="home-label">チェックリスト</span>
+  </div>
+  <div class="inbox-add-bar">
+    <div class="inbox-add-row">
+      <input id="quick-input" aria-label="新しいタスク" placeholder="タスクを入力… 「明日」「来週」など日時も自然言語で" oninput="onQuickInput(this.value)" onkeydown="handleQuickAdd(event)">
+      <button class="btn btn-primary" onclick="addTask()">追加</button>
     </div>
-    <div class="home-card" tabindex="0" onclick="switchTab('recurring')">
-      <span class="home-icon">🔄</span>
-      <span class="home-label">定期タスク</span>
+    <div id="quick-date-hint" class="inbox-date-hint"></div>
+    <div class="inbox-opts-row">
+      <input id="quick-due-date" type="date" class="inbox-due-input" aria-label="期日（任意）" title="期日">
+      <button class="quick-shortcut" onclick="setQuickDate(0)" title="今日">今日</button>
+      <button class="quick-shortcut" onclick="setQuickDate(1)" title="明日">明日</button>
+      <button class="quick-shortcut" onclick="setQuickDate(7)" title="来週">来週</button>
+      <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <button id="imp-quick-btn" class="imp-btn imp-medium" onclick="cycleQuickImp()" title="重要度">🟡中</button>
+        <button id="longterm-quick-btn" class="btn btn-ghost btn-sm longterm-toggle" onclick="toggleQuickLongterm()" title="長期タスクとして追加">🗂 長期</button>
+        <button class="btn btn-warning btn-sm" onclick="runSort()">✨ AI</button>
+      </span>
     </div>
-    <div class="home-card" tabindex="0" onclick="switchTab('settings')">
-      <span class="home-icon">⚙️</span>
-      <span class="home-label">設定</span>
-    </div>
+    <span id="sort-status" style="font-size:12px;color:var(--text-dim)"></span>
   </div>
 </div>
 
@@ -411,34 +449,6 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
   <div id="dashboard-content"></div>
 </div>
 
-<!-- ── Inbox ── -->
-<div id="pane-inbox" class="pane content">
-  <div class="inbox-body">
-    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">
-      <button class="btn btn-ghost btn-sm" onclick="switchTab('dashboard')">📊 ダッシュボード</button>
-    </div>
-    <div id="inbox-list" class="task-list"></div>
-  </div>
-  <div class="inbox-add-bar">
-    <div class="inbox-add-row">
-      <input id="quick-input" aria-label="新しいタスク" placeholder="タスクを入力… 「明日」「来週」など日時も自然言語で" oninput="onQuickInput(this.value)" onkeydown="handleQuickAdd(event)">
-      <button class="btn btn-primary" onclick="addTask()">追加</button>
-    </div>
-    <div id="quick-date-hint" class="inbox-date-hint"></div>
-    <div class="inbox-opts-row">
-      <input id="quick-due-date" type="date" class="inbox-due-input" aria-label="期日（任意）" title="期日">
-      <button class="quick-shortcut" onclick="setQuickDate(0)" title="今日">今日</button>
-      <button class="quick-shortcut" onclick="setQuickDate(1)" title="明日">明日</button>
-      <button class="quick-shortcut" onclick="setQuickDate(7)" title="来週">来週</button>
-      <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
-        <button id="imp-quick-btn" class="imp-btn imp-medium" onclick="cycleQuickImp()" title="重要度">🟡中</button>
-        <button id="longterm-quick-btn" class="btn btn-ghost btn-sm longterm-toggle" onclick="toggleQuickLongterm()" title="長期タスクとして追加">🗂 長期</button>
-        <button class="btn btn-warning btn-sm" onclick="runSort()">✨ AI</button>
-      </span>
-    </div>
-    <span id="sort-status" style="font-size:12px;color:var(--text-dim)"></span>
-  </div>
-</div>
 
 <!-- ── タスク ── -->
 <div id="pane-tasks" class="pane content">
@@ -456,6 +466,11 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
   <div style="margin-bottom:10px">
     <input id="task-search" aria-label="タスク検索" placeholder="🔍 タスクを検索…" oninput="filterTasks(this.value)"
       style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+  </div>
+  <div id="auto-split-banner" style="display:none" onclick="openSplitsFromBanner()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    <span id="auto-split-text"></span>
+    <span style="margin-left:auto;font-size:11px;opacity:.7">クリックして確認 →</span>
   </div>
   <div id="tasks-list"></div>
   <!-- ゴミ箱（折りたたみ） -->
@@ -539,6 +554,12 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 
 <!-- ── 設定 ── -->
 <div id="pane-settings" class="pane content">
+  <div class="form-card">
+    <h3>タブ表示設定</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">不要なタブを非表示にできます。ホーム・チャット・タスク・設定は常に表示されます。</p>
+    <div id="tab-visibility-settings"></div>
+  </div>
+
   <div class="form-card">
     <h3>テーマ</h3>
     <div class="setting-row" style="border-bottom:none">
@@ -969,23 +990,23 @@ function applyTheme(t){
 <!-- ── ボトムナビ ── -->
 <div class="bottom-nav">
   <button class="nav-btn active" data-tab="home" onclick="switchTab('home')">
-    <span class="nav-icon">🏠</span>
+    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
     <span class="nav-label">ホーム</span>
   </button>
   <button class="nav-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
-    <span class="nav-icon">📊</span>
+    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
     <span class="nav-label">ダッシュボード</span>
   </button>
   <button class="nav-btn" data-tab="diary" onclick="switchTab('diary')">
-    <span class="nav-icon">📔</span>
+    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
     <span class="nav-label">日記</span>
   </button>
   <button class="nav-btn" data-tab="lang" onclick="switchTab('lang')">
-    <span class="nav-icon">📚</span>
+    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
     <span class="nav-label">語学</span>
   </button>
   <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">
-    <span class="nav-icon">💬</span>
+    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
     <span class="nav-label">チャット</span>
   </button>
 </div>

@@ -19,6 +19,7 @@ import './nav.js';        // nav last: sets up keydown handlers that call featur
 
 import { state } from './state.js';
 import { updateHomeBadges, updateBadges, reloadActivePane, switchTab } from './nav.js';
+import { applyTabVisibility } from './settings.js';
 
 // ── Service Worker ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -27,6 +28,7 @@ if ('serviceWorker' in navigator) {
 
 // ── Init ──────────────────────────────────────────────────────────────
 state.activePane = 'home';
+applyTabVisibility();
 updateHomeBadges();
 updateBadges();
 

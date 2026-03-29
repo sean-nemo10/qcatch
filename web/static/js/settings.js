@@ -1,6 +1,65 @@
 import { api } from './api.js';
 import { esc } from './utils.js';
 
+// ── Tab visibility ────────────────────────────────────────────────────
+const OPTIONAL_TABS = [
+  { id: 'dashboard', label: 'ダッシュボード', navType: 'nav' },
+  { id: 'diary',     label: '日記・ブログ',   navType: 'nav' },
+  { id: 'lang',      label: '語学学習',       navType: 'nav' },
+  { id: 'longterm',  label: '長期タスク',     navType: 'grid' },
+  { id: 'checklists',label: 'チェックリスト', navType: 'grid' },
+  { id: 'recurring', label: '定期タスク',     navType: 'grid' },
+];
+
+function getHiddenTabs() {
+  try { return JSON.parse(localStorage.getItem('zzzmemo_hidden_tabs') || '[]'); }
+  catch { return []; }
+}
+
+export function applyTabVisibility() {
+  const hidden = getHiddenTabs();
+  OPTIONAL_TABS.forEach(({ id, navType }) => {
+    const isHidden = hidden.includes(id);
+    if (navType === 'grid') {
+      const card = document.querySelector(`#home-grid [onclick*="switchTab('${id}')"]`);
+      if (card) card.style.display = isHidden ? 'none' : '';
+    } else {
+      const btn = document.querySelector(`.nav-btn[data-tab="${id}"]`);
+      if (btn) btn.style.display = isHidden ? 'none' : '';
+    }
+  });
+}
+window.applyTabVisibility = applyTabVisibility;
+
+function toggleTabVisibility(id, visible) {
+  const hidden = getHiddenTabs();
+  const idx = hidden.indexOf(id);
+  if (visible && idx >= 0) hidden.splice(idx, 1);
+  else if (!visible && idx < 0) hidden.push(id);
+  localStorage.setItem('zzzmemo_hidden_tabs', JSON.stringify(hidden));
+  applyTabVisibility();
+  renderTabSettings();
+}
+window.toggleTabVisibility = toggleTabVisibility;
+
+function renderTabSettings() {
+  const hidden = getHiddenTabs();
+  const container = document.getElementById('tab-visibility-settings');
+  if (!container) return;
+  container.innerHTML = OPTIONAL_TABS.map(({ id, label, navType }) => `
+    <div class="setting-row">
+      <div class="setting-label">${label}
+        <span style="font-size:10px;color:var(--text-faint);margin-left:6px">${navType === 'grid' ? 'ホーム' : 'ナビ'}</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" ${!hidden.includes(id) ? 'checked' : ''} onchange="toggleTabVisibility('${id}', this.checked)"
+          style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+        <span style="font-size:12px;color:var(--text-muted)">${!hidden.includes(id) ? '表示' : '非表示'}</span>
+      </label>
+    </div>`).join('');
+}
+window.renderTabSettings = renderTabSettings;
+
 // ── API key ───────────────────────────────────────────────────────────
 export function getApiKey() {
   return localStorage.getItem('qcatch_api_key') || '';
@@ -46,6 +105,7 @@ export async function loadSettings() {
   if (intervalSel && cfg.sync_interval_minutes != null) {
     intervalSel.value = String(cfg.sync_interval_minutes);
   }
+  renderTabSettings();
   checkGoogleAuthStatus();
 }
 window.loadSettings = loadSettings;

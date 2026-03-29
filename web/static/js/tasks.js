@@ -116,6 +116,12 @@ export async function loadTasks() {
   }).join('');
 
   updateSelectionCount();
+
+  // Auto-suggest subfolder splits (once per session, silent)
+  if (!sessionStorage.getItem('splits_auto_done')) {
+    sessionStorage.setItem('splits_auto_done', '1');
+    autoSuggestSplits();
+  }
 }
 window.loadTasks = loadTasks;
 
@@ -566,6 +572,45 @@ export function closeModal() {
 window.closeModal = closeModal;
 
 // ── Split suggestion modal ────────────────────────────────────────────
+async function autoSuggestSplits() {
+  try {
+    const data = await api('POST', '/api/suggest-splits', {
+      api_key: window.getApiKey ? window.getApiKey() : (localStorage.getItem('qcatch_api_key') || null)
+    });
+    if (!data.suggestions.length) return;
+    state.pendingSplits = data.suggestions;
+    const banner = document.getElementById('auto-split-banner');
+    const text = document.getElementById('auto-split-text');
+    if (banner && text) {
+      text.textContent = `AI がサブフォルダを ${data.suggestions.length} 件提案しています`;
+      banner.style.display = 'flex';
+    }
+  } catch(e) { /* silent — no API key or network error */ }
+}
+
+export function openSplitsFromBanner() {
+  if (!state.pendingSplits?.length) return;
+  const byTag = {};
+  state.pendingSplits.forEach((s, i) => {
+    if (!byTag[s.suggested_tag]) byTag[s.suggested_tag] = [];
+    byTag[s.suggested_tag].push({...s, _idx: i});
+  });
+  document.getElementById('splits-list').innerHTML = Object.entries(byTag).map(([tag, items]) => `
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:6px">› ${esc(tag)}</div>
+      ${items.map(s => `
+        <div class="suggestion-item">
+          <input type="checkbox" id="spl-${s._idx}" checked>
+          <div class="suggestion-text">
+            <span style="font-size:13px">${esc(s.text)}</span>
+            <span style="font-size:11px;color:var(--text-dim);margin-left:6px">${esc(s.category)}</span>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+  document.getElementById('modal-splits').classList.add('show');
+}
+window.openSplitsFromBanner = openSplitsFromBanner;
+
 export async function suggestSplits() {
   window.showStatus('AI がサブフォルダを分析中…', 'info', 0);
   try {
@@ -611,6 +656,9 @@ export async function applySplits() {
       splits: checked.map(s => ({task_id: s.task_id, suggested_tag: s.suggested_tag}))
     });
     closeSplitsModal();
+    const banner = document.getElementById('auto-split-banner');
+    if (banner) banner.style.display = 'none';
+    sessionStorage.removeItem('splits_auto_done'); // 次回再提案を許可
     window.showStatus(`✓ ${res.applied} 件にサブフォルダを設定しました`, 'success');
     loadTasks();
   } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
