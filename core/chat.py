@@ -73,6 +73,8 @@ def _calendar_status_line() -> str:
 
 
 def _build_system_prompt(data: AppData) -> str:
+    from datetime import timedelta
+
     today = date.today()
     today_str = f"{today.year}年{today.month}月{today.day}日（{_WEEKDAY_JA[today.weekday()]}曜日）"
     todo_count = sum(1 for t in data.tasks if t.status == "todo")
@@ -87,6 +89,35 @@ def _build_system_prompt(data: AppData) -> str:
     )
     cl_active = sum(1 for cl in data.checklists if any(not i.done for i in cl.items))
     rec_count = len(data.recurring)
+
+    # 期日情報
+    active = [t for t in data.tasks if t.status in ("todo", "inbox") and t.due_date]
+    overdue = [t for t in active if t.due_date.date() < today]
+    due_today = [t for t in active if t.due_date.date() == today]
+    due_soon = [
+        t for t in active if today < t.due_date.date() <= today + timedelta(days=7)
+    ]
+
+    due_parts = []
+    if overdue:
+        names = "、".join(f"「{t.text}」" for t in overdue[:3])
+        suffix = f"（他{len(overdue)-3}件）" if len(overdue) > 3 else ""
+        due_parts.append(f"⚠️ 期日超過 {len(overdue)}件: {names}{suffix}")
+    if due_today:
+        names = "、".join(f"「{t.text}」" for t in due_today[:3])
+        due_parts.append(f"📅 今日期日 {len(due_today)}件: {names}")
+    if due_soon:
+        names = "、".join(
+            f"「{t.text}」({t.due_date.strftime('%m/%d')})" for t in due_soon[:3]
+        )
+        due_parts.append(f"📆 今週期日 {len(due_soon)}件: {names}")
+
+    due_section = (
+        "\n\n【期日情報】（ブリーフィングでは必ず最初に言及し、超過・今日期日を強調すること）\n"
+        + "\n".join(f"- {p}" for p in due_parts)
+        if due_parts
+        else ""
+    )
 
     return (
         f"今日の日付: {today_str}\n\n"
@@ -107,7 +138,7 @@ def _build_system_prompt(data: AppData) -> str:
         f"- 長期タスク（カウント対象外）: {longterm_count} 件\n"
         f"- 本日完了: {done_today} 件\n"
         f"- アクティブなチェックリスト: {cl_active} 件\n"
-        f"- 定期タスクルール: {rec_count} 件\n" + _calendar_status_line()
+        f"- 定期タスクルール: {rec_count} 件\n" + _calendar_status_line() + due_section
     )
 
 
@@ -382,6 +413,8 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
         return "\n\n".join(parts), actions
 
     elif name == "get_summary":
+        from datetime import timedelta
+
         todo = [t for t in data.tasks if t.status == "todo"]
         inbox_count = sum(1 for t in data.tasks if t.status == "inbox")
         done_today = sum(
@@ -393,8 +426,29 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
         )
         cat_counts = Counter(t.category for t in todo if t.category)
         cat_str = " / ".join(f"{k}:{v}" for k, v in cat_counts.most_common())
+
+        today_d = date.today()
+        active_due = [
+            t for t in data.tasks if t.status in ("todo", "inbox") and t.due_date
+        ]
+        overdue = [t for t in active_due if t.due_date.date() < today_d]
+        due_today_list = [t for t in active_due if t.due_date.date() == today_d]
+        due_week = [
+            t
+            for t in active_due
+            if today_d < t.due_date.date() <= today_d + timedelta(days=7)
+        ]
+        due_parts = []
+        if overdue:
+            due_parts.append(f"⚠️期日超過:{len(overdue)}件")
+        if due_today_list:
+            due_parts.append(f"📅今日期日:{len(due_today_list)}件")
+        if due_week:
+            due_parts.append(f"📆今週期日:{len(due_week)}件")
+        due_line = (" | " + " | ".join(due_parts)) if due_parts else ""
+
         return (
-            f"Inbox: {inbox_count}件 | Todo: {len(todo)}件 ({cat_str}) | 本日完了: {done_today}件\n"
+            f"Inbox: {inbox_count}件 | Todo: {len(todo)}件 ({cat_str}) | 本日完了: {done_today}件{due_line}\n"
             f"チェックリスト: {len(data.checklists)}件 | 定期タスク: {len(data.recurring)}件"
         ), actions
 
@@ -457,6 +511,37 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             + " / ".join(f"{k}:{v}件" for k, v in cat_dist.most_common())
         )
         lines.append(f"今週完了: {done_week} 件 / 本日完了: {done_today_count} 件")
+        # 期日近いタスク
+        today_d = now.date()
+        overdue_tasks = [t for t in todo if t.due_date and t.due_date.date() < today_d]
+        due_today_tasks = [
+            t for t in todo if t.due_date and t.due_date.date() == today_d
+        ]
+        due_week_tasks = [
+            t
+            for t in todo
+            if t.due_date and today_d < t.due_date.date() <= today_d + timedelta(days=7)
+        ]
+        if overdue_tasks:
+            lines.append(
+                "⚠️ 期日超過タスク: "
+                + " / ".join(f"「{t.text}」" for t in overdue_tasks[:5])
+                + (f"（他{len(overdue_tasks)-5}件）" if len(overdue_tasks) > 5 else "")
+            )
+        if due_today_tasks:
+            lines.append(
+                "📅 今日期日: "
+                + " / ".join(f"「{t.text}」" for t in due_today_tasks[:5])
+            )
+        if due_week_tasks:
+            lines.append(
+                "📆 今週期日: "
+                + " / ".join(
+                    f"「{t.text}」({t.due_date.strftime('%m/%d')})"
+                    for t in due_week_tasks[:5]
+                )
+            )
+
         if overdue_cls:
             lines.append(
                 f"期日切れチェックリスト: {len(overdue_cls)} 件 — "
