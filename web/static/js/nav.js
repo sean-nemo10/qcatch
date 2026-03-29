@@ -22,6 +22,7 @@ window.showStatus = showStatus;
 // ── Tab switching ─────────────────────────────────────────────────────
 export function switchTab(name) {
   if (name === 'inbox') { switchTab('home'); return; }
+  if (name === 'tasks') { switchTab('dashboard'); return; }
   document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
   document.getElementById('pane-' + name).classList.add('active');
   state.activePane = name;
@@ -31,7 +32,6 @@ export function switchTab(name) {
   if (name === 'home') { loadInbox(); updateHomeBadges(); setTimeout(() => document.getElementById('quick-input')?.focus(), 50); }
   else if (name === 'chat') loadApiKeyToChat();
   else if (name === 'dashboard') loadDashboard();
-  else if (name === 'tasks') loadTasks();
   else if (name === 'longterm') loadLongterm();
   else if (name === 'checklists') loadChecklists();
   else if (name === 'diary') initDiaryPane();
@@ -49,7 +49,6 @@ window.switchTabByName = switchTabByName;
 export function reloadActivePane() {
   if (state.activePane === 'dashboard') loadDashboard();
   else if (state.activePane === 'home' || state.activePane === 'inbox') loadInbox();
-  else if (state.activePane === 'tasks') loadTasks();
   else if (state.activePane === 'longterm') loadLongterm();
   else if (state.activePane === 'checklists') loadChecklists();
 }
@@ -59,8 +58,10 @@ window.reloadActivePane = reloadActivePane;
 let trashVisible = false;
 export function toggleTrash() {
   trashVisible = !trashVisible;
-  document.getElementById('trash-section').style.display = trashVisible ? '' : 'none';
-  document.getElementById('trash-toggle-btn').style.color = trashVisible ? '#4fc3f7' : '';
+  const sec = document.getElementById('trash-section');
+  const btn = document.getElementById('trash-toggle-btn');
+  if (sec) sec.style.display = trashVisible ? '' : 'none';
+  if (btn) btn.style.color = trashVisible ? '#4fc3f7' : '';
   if (trashVisible) window.loadTrash();
 }
 window.toggleTrash = toggleTrash;
@@ -68,36 +69,24 @@ window.toggleTrash = toggleTrash;
 // ── Badges ────────────────────────────────────────────────────────────
 export async function updateBadges() {
   try {
-    const [inbox, tasks] = await Promise.all([
-      api('GET', '/api/tasks?status=inbox'),
-      api('GET', '/api/tasks?status=todo'),
-    ]);
-    const ic = inbox.tasks.length;
-    const tc = tasks.tasks.length;
+    const inbox = await api('GET', '/api/tasks?status=inbox');
     const hic = document.getElementById('home-inbox-count');
-    const hbt = document.getElementById('home-badge-tasks');
-    if (hic) hic.textContent = ic;
-    if (hbt) hbt.textContent = tc;
+    if (hic) hic.textContent = inbox.tasks.length;
   } catch {}
 }
 window.updateBadges = updateBadges;
 
 export async function updateHomeBadges() {
   try {
-    const [inbox, tasks] = await Promise.all([
-      api('GET', '/api/tasks?status=inbox'),
-      api('GET', '/api/tasks?status=todo'),
-    ]);
+    const inbox = await api('GET', '/api/tasks?status=inbox');
     const ic = document.getElementById('home-inbox-count');
-    const tb = document.getElementById('home-badge-tasks');
     if (ic) ic.textContent = inbox.tasks.length;
-    if (tb) tb.textContent = tasks.tasks.length;
   } catch(e) {}
 }
 window.updateHomeBadges = updateHomeBadges;
 
 // ── Home screen keyboard nav ──────────────────────────────────────────
-export const HOME_TABS = ['tasks','longterm','checklists','recurring','settings'];
+export const HOME_TABS = ['longterm','checklists','recurring','settings'];
 let _homeFocusIdx = 0;
 
 export function updateHomeFocus() {
@@ -130,13 +119,5 @@ document.addEventListener('keydown', e => {
   if (e.key === 'n') {
     switchTab('home');
     setTimeout(() => document.getElementById('quick-input').focus(), 50);
-  } else if (e.key === '/') {
-    e.preventDefault();
-    const searchMap = { tasks: 'task-search' };
-    const searchId = searchMap[state.activePane];
-    if (searchId) {
-      const el = document.getElementById(searchId);
-      if (el) el.focus();
-    }
   }
 });

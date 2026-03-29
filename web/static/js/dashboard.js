@@ -16,27 +16,17 @@ export async function loadDashboard() {
     ]);
     container.innerHTML = '';
 
-    container.innerHTML += `
-      <div class="dash-section">
-        <div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
-          <span>☀️</span>
-          <span style="color:var(--text-dim)">AI が今日のフォーカスを分析します</span>
-          <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="sendBriefing()">朝のブリーフィング</button>
-        </div>
-      </div>`;
-
     const _inboxCount = inboxData.tasks.length;
-    container.innerHTML += `
+    if (_inboxCount > 0) {
+      container.innerHTML += `
       <div class="dash-section">
-        <div style="padding:10px 14px;background:${_inboxCount > 0 ? '#1a2a10' : 'var(--surface)'};border:1px solid ${_inboxCount > 0 ? '#2e7d32' : 'var(--border)'};border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
+        <div style="padding:10px 14px;background:#1a2a10;border:1px solid #2e7d32;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px">
           <span>📥</span>
-          <span>${_inboxCount > 0 ? `Inbox に <strong>${_inboxCount} 件</strong> の未分類タスク` : 'Inbox は空です'}</span>
-          <span style="margin-left:auto;display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" onclick="switchTabByName('tasks')">✅ タスク</button>
-            <button class="btn ${_inboxCount > 0 ? 'btn-warning' : 'btn-ghost'} btn-sm" onclick="switchTabByName('inbox')">📥 Inbox へ</button>
-          </span>
+          <span>Inbox に <strong>${_inboxCount} 件</strong> の未分類タスク</span>
+          <button class="btn btn-warning btn-sm" style="margin-left:auto" onclick="switchTabByName('inbox')">整理する</button>
         </div>
       </div>`;
+    }
 
     const activeCls = clData.checklists.filter(cl => cl.items.some(i => !i.done));
     const clWithDue  = activeCls.filter(cl => cl.due_date).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));

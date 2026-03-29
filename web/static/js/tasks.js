@@ -18,6 +18,7 @@ function saveTasksCatOrder(o) { localStorage.setItem('qcatch_tasks_cat_order', J
 
 // ── Tasks load ────────────────────────────────────────────────────────
 export async function loadTasks() {
+  if (!document.getElementById('tasks-list')) return;
   const [taskData, clData, orderData] = await Promise.all([
     api('GET', '/api/tasks?status=todo'),
     api('GET', '/api/checklists'),

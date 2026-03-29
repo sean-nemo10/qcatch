@@ -145,7 +145,7 @@ export async function executeImport() {
     window.showStatus(`✓ ${res.added} 件のタスクを追加しました`, 'success');
     window.updateBadges();
     if (state.activePane === 'inbox') window.loadInbox();
-    else if (state.activePane === 'tasks') window.loadTasks();
+    else if (state.activePane === 'dashboard') window.loadDashboard();
   } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
 }
 window.executeImport = executeImport;

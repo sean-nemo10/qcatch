@@ -55,7 +55,6 @@ export async function setImportanceDirect(id, level) {
   try {
     await api('PATCH', `/api/tasks/${id}`, {importance: level});
     loadSortPane();
-    if (state.activePane === 'tasks') window.loadTasks();
     if (state.activePane === 'dashboard') window.loadDashboard();
   } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
 }
@@ -65,9 +64,8 @@ export async function cycleImportance(id, current) {
   const next = IMP_CYCLE[current] || 'high';
   try {
     await api('PATCH', `/api/tasks/${id}`, {importance: next});
-    window.loadTasks();
     if (state.activePane === 'sort') loadSortPane();
-    if (state.activePane === 'dashboard') window.loadDashboard();
+    else if (state.activePane === 'dashboard') window.loadDashboard();
   } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
 }
 window.cycleImportance = cycleImportance;

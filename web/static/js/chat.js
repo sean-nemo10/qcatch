@@ -247,7 +247,7 @@ export async function sendBriefing() {
   const apiKey = getApiKey();
   window.switchTabByName('chat');
 
-  appendChatMsg('user', '☀️ 朝のブリーフィング');
+  appendChatMsg('user', 'AI 分析');
 
   const container = document.getElementById('chat-messages');
   const row = document.createElement('div');
