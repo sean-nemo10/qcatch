@@ -30,8 +30,9 @@ from web.routers import (
     tasks,
 )
 
-# localhost HTTP で OAuth2 を通すために必要
-os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+# localhost HTTP で OAuth2 を通すために必要（本番環境では設定しない）
+if os.environ.get("HOST", "127.0.0.1") in ("127.0.0.1", "localhost"):
+    os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
 # ── パス解決 ──────────────────────────────────────────────────────────────────
 
@@ -123,9 +124,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ZzzMemo", lifespan=lifespan)
 
+_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5000"],
+    allow_origins=_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -171,11 +173,16 @@ app.include_router(config.router)
 # ── サーバー起動 ──────────────────────────────────────────────────────────────
 
 
-def run(port: int = 5000, open_browser: bool = True) -> None:
+def run(port: int | None = None, open_browser: bool | None = None) -> None:
     import uvicorn
 
-    url = f"http://localhost:{port}"
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = port or int(os.environ.get("PORT", "5000"))
+    if open_browser is None:
+        open_browser = host in ("127.0.0.1", "localhost")
+
     if open_browser:
+        url = f"http://localhost:{port}"
 
         def _open():
             import time
@@ -185,5 +192,12 @@ def run(port: int = 5000, open_browser: bool = True) -> None:
 
         threading.Thread(target=_open, daemon=True).start()
 
-    print(f"[ZzzMemo] サーバー起動 → {url}")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    print(f"[ZzzMemo] サーバー起動 → {host}:{port}")
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="warning",
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )

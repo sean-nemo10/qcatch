@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "zzzmemo": {
+      "command": "python",
+      "args": ["<path-to-repo>/mcp_server.py"]
+    }
+  }
+}
