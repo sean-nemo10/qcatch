@@ -16,10 +16,12 @@ import './diary.js';
 import './lang.js';
 import './import.js';
 import './nav.js';        // nav last: sets up keydown handlers that call feature loaders
+import './voice.js';
 
 import { state } from './state.js';
 import { updateHomeBadges, updateBadges, reloadActivePane, switchTab } from './nav.js';
 import { applyTabVisibility } from './settings.js';
+import { updateMicButtons } from './voice.js';
 
 // ── Service Worker ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -29,6 +31,7 @@ if ('serviceWorker' in navigator) {
 // ── Init ──────────────────────────────────────────────────────────────
 state.activePane = 'home';
 applyTabVisibility();
+updateMicButtons();
 updateHomeBadges();
 updateBadges();
 
