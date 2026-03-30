@@ -7,6 +7,7 @@ const OPTIONAL_TABS = [
   { id: 'chat',      label: 'チャット',       navType: 'nav' },
   { id: 'diary',     label: '日記・ブログ',   navType: 'nav' },
   { id: 'lang',      label: '語学学習',       navType: 'nav' },
+  { id: 'tasks',     label: 'タスク',         navType: 'grid' },
   { id: 'longterm',  label: '長期タスク',     navType: 'grid' },
   { id: 'checklists',label: 'チェックリスト', navType: 'grid' },
   { id: 'recurring', label: '定期タスク',     navType: 'grid' },
