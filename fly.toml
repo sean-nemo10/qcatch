@@ -6,6 +6,8 @@ primary_region = "nrt"
 [env]
   PORT = "8080"
   HOST = "0.0.0.0"
+  ZZZMEMO_USER = ""
+  ZZZMEMO_PASS = ""
 
 [http_service]
   internal_port = 8080

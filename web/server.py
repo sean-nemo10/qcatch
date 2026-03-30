@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 import sys
 import threading
 import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
 from core import storage
@@ -33,6 +35,25 @@ from web.routers import (
 # localhost HTTP で OAuth2 を通すために必要（本番環境では設定しない）
 if os.environ.get("HOST", "127.0.0.1") in ("127.0.0.1", "localhost"):
     os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+
+# ── HTTP Basic Auth ───────────────────────────────────────────────────────────
+
+_AUTH_USER = os.environ.get("ZZZMEMO_USER", "")
+_AUTH_PASS = os.environ.get("ZZZMEMO_PASS", "")
+_AUTH_ENABLED = bool(_AUTH_USER and _AUTH_PASS)
+
+_http_basic = HTTPBasic(auto_error=False)
+
+
+def _verify_basic_auth(credentials: HTTPBasicCredentials | None) -> bool:
+    if not _AUTH_ENABLED:
+        return True
+    if credentials is None:
+        return False
+    user_ok = secrets.compare_digest(credentials.username.encode(), _AUTH_USER.encode())
+    pass_ok = secrets.compare_digest(credentials.password.encode(), _AUTH_PASS.encode())
+    return user_ok and pass_ok
+
 
 # ── パス解決 ──────────────────────────────────────────────────────────────────
 
@@ -131,6 +152,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def basic_auth_middleware(request: Request, call_next):
+    if _AUTH_ENABLED and request.url.path.startswith("/api/"):
+        auth = await _http_basic(request)
+        if not _verify_basic_auth(auth):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized"},
+                headers={"WWW-Authenticate": 'Basic realm="ZzzMemo"'},
+            )
+    return await call_next(request)
+
 
 # 静的ファイル
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")

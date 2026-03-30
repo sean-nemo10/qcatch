@@ -1,4 +1,5 @@
 data/
+.git/
 __pycache__/
 *.pyc
 *.pyo
@@ -10,3 +11,7 @@ build/
 *.spec
 docs/
 *.ps1
+client_secret.json
+qcatch.exe
+.claude/
+.mcp.json
