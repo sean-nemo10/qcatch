@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -11,10 +13,9 @@ import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from core import storage
@@ -36,23 +37,69 @@ from web.routers import (
 if os.environ.get("HOST", "127.0.0.1") in ("127.0.0.1", "localhost"):
     os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
-# ── HTTP Basic Auth ───────────────────────────────────────────────────────────
+# ── セッション Cookie 認証 ────────────────────────────────────────────────────
 
 _AUTH_USER = os.environ.get("ZZZMEMO_USER", "")
 _AUTH_PASS = os.environ.get("ZZZMEMO_PASS", "")
 _AUTH_ENABLED = bool(_AUTH_USER and _AUTH_PASS)
+_SESSION_COOKIE = "zzzmemo_session"
 
-_http_basic = HTTPBasic(auto_error=False)
+# 認証不要なパス
+_PUBLIC_PATHS = {"/login", "/favicon.ico", "/manifest.json", "/sw.js"}
 
 
-def _verify_basic_auth(credentials: HTTPBasicCredentials | None) -> bool:
+def _make_session_token() -> str:
+    """認証情報から決定論的なセッショントークンを生成（ストレージ不要）。"""
+    key = f"{_AUTH_USER}:{_AUTH_PASS}".encode()
+    return hmac.new(key, b"zzzmemo-session-v1", hashlib.sha256).hexdigest()
+
+
+def _verify_session(request: Request) -> bool:
     if not _AUTH_ENABLED:
         return True
-    if credentials is None:
-        return False
-    user_ok = secrets.compare_digest(credentials.username.encode(), _AUTH_USER.encode())
-    pass_ok = secrets.compare_digest(credentials.password.encode(), _AUTH_PASS.encode())
-    return user_ok and pass_ok
+    token = request.cookies.get(_SESSION_COOKIE, "")
+    return secrets.compare_digest(token, _make_session_token())
+
+
+_LOGIN_HTML = """\
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZzzMemo — ログイン</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:#0f0f13;color:#e2e8f0;font-family:"Segoe UI",sans-serif;
+    display:flex;align-items:center;justify-content:center;min-height:100vh}}
+  .card{{background:#1a1a2e;border:1px solid #2a2a3e;border-radius:16px;
+    padding:40px 36px;width:100%;max-width:360px}}
+  h1{{font-size:22px;margin-bottom:28px;color:#818cf8;text-align:center}}
+  label{{display:block;font-size:13px;color:#94a3b8;margin-bottom:6px}}
+  input{{width:100%;background:#0f0f1a;border:1px solid #2a2a3e;color:#e2e8f0;
+    border-radius:8px;padding:10px 14px;font-size:15px;margin-bottom:18px}}
+  input:focus{{outline:none;border-color:#818cf8}}
+  button{{width:100%;background:#818cf8;color:#fff;border:none;border-radius:8px;
+    padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
+  button:hover{{background:#6366f1}}
+  .err{{color:#f87171;font-size:13px;text-align:center;margin-bottom:14px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>ZzzMemo</h1>
+  {error}
+  <form method="post" action="/login">
+    <label>ユーザー名</label>
+    <input name="username" type="text" autocomplete="username" autofocus required>
+    <label>パスワード</label>
+    <input name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">ログイン</button>
+  </form>
+</div>
+</body>
+</html>
+"""
 
 
 # ── パス解決 ──────────────────────────────────────────────────────────────────
@@ -155,16 +202,54 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def basic_auth_middleware(request: Request, call_next):
-    if _AUTH_ENABLED and request.url.path.startswith("/api/"):
-        auth = await _http_basic(request)
-        if not _verify_basic_auth(auth):
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Unauthorized"},
-                headers={"WWW-Authenticate": 'Basic realm="ZzzMemo"'},
-            )
+async def session_auth_middleware(request: Request, call_next):
+    path = request.url.path
+    if _AUTH_ENABLED and path not in _PUBLIC_PATHS and not path.startswith("/static/"):
+        if not _verify_session(request):
+            if path.startswith("/api/"):
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+            return RedirectResponse(url="/login", status_code=302)
     return await call_next(request)
+
+
+# ── 認証エンドポイント ─────────────────────────────────────────────────────────
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(error: str = ""):
+    err_html = (
+        '<p class="err">ユーザー名またはパスワードが違います</p>' if error else ""
+    )
+    return HTMLResponse(_LOGIN_HTML.format(error=err_html))
+
+
+@app.post("/login")
+def login_submit(
+    response: RedirectResponse,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    user_ok = secrets.compare_digest(username.encode(), _AUTH_USER.encode())
+    pass_ok = secrets.compare_digest(password.encode(), _AUTH_PASS.encode())
+    if _AUTH_ENABLED and not (user_ok and pass_ok):
+        return RedirectResponse(url="/login?error=1", status_code=303)
+    resp = RedirectResponse(url="/", status_code=303)
+    resp.set_cookie(
+        _SESSION_COOKIE,
+        _make_session_token(),
+        httponly=True,
+        secure=_AUTH_ENABLED,
+        samesite="lax",
+        max_age=90 * 24 * 3600,  # 90日
+    )
+    return resp
+
+
+@app.get("/logout")
+def logout():
+    resp = RedirectResponse(url="/login", status_code=302)
+    resp.delete_cookie(_SESSION_COOKIE)
+    return resp
 
 
 # 静的ファイル
