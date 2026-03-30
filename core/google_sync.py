@@ -298,7 +298,32 @@ def _sync_to_calendar(creds, task) -> str:
             )
             return ev["id"]
         except Exception:
-            pass  # 削除済みなら新規作成にフォールバック
+            pass
+
+    # description の qcatch_id で既存イベントを検索（重複防止）
+    results = (
+        service.events()
+        .list(
+            calendarId="primary",
+            privateExtendedProperty=None,
+            q=f"qcatch_id:{task.id}",
+            maxResults=5,
+            singleEvents=True,
+        )
+        .execute()
+        .get("items", [])
+    )
+    for ev in results:
+        if f"qcatch_id:{task.id}" in ev.get("description", ""):
+            try:
+                updated = (
+                    service.events()
+                    .update(calendarId="primary", eventId=ev["id"], body=body)
+                    .execute()
+                )
+                return updated["id"]
+            except Exception:
+                pass
 
     ev = service.events().insert(calendarId="primary", body=body).execute()
     return ev["id"]
@@ -428,11 +453,29 @@ def _get_or_create_tasklist(service, category: str | None) -> str:
     return new_list["id"]
 
 
+def _find_existing_google_task(service, qcatch_id: str) -> tuple[str, str] | None:
+    """全リストから qcatch_id が一致するタスクを探す。戻り値: (list_id, task_id) or None。"""
+    lists = service.tasklists().list(maxResults=30).execute().get("items", [])
+    marker = f"qcatch_id:{qcatch_id}"
+    for tl in lists:
+        items = (
+            service.tasks()
+            .list(
+                tasklist=tl["id"], showCompleted=True, showHidden=True, maxResults=100
+            )
+            .execute()
+            .get("items", [])
+        )
+        for t in items:
+            if t.get("notes", "").startswith(marker):
+                return tl["id"], t["id"]
+    return None
+
+
 def _sync_to_tasks(creds, task) -> str:
     from googleapiclient.discovery import build
 
     service = build("tasks", "v1", credentials=creds)
-    list_id = _get_or_create_tasklist(service, task.category)
 
     due_str = task.due_date.strftime("%Y-%m-%dT00:00:00.000Z")
     body = {
@@ -442,7 +485,9 @@ def _sync_to_tasks(creds, task) -> str:
         "notes": f"qcatch_id:{task.id}",
     }
 
+    # 1. 保存済み google_task_id で更新を試みる
     if task.google_task_id:
+        list_id = _get_or_create_tasklist(service, task.category)
         try:
             t = (
                 service.tasks()
@@ -451,8 +496,24 @@ def _sync_to_tasks(creds, task) -> str:
             )
             return t["id"]
         except Exception:
-            pass  # 削除済みなら新規作成にフォールバック
+            pass
 
+    # 2. notes の qcatch_id で既存タスクを検索（重複防止）
+    existing = _find_existing_google_task(service, task.id)
+    if existing:
+        found_list_id, found_task_id = existing
+        try:
+            t = (
+                service.tasks()
+                .update(tasklist=found_list_id, task=found_task_id, body=body)
+                .execute()
+            )
+            return t["id"]
+        except Exception:
+            pass
+
+    # 3. 本当に存在しない場合のみ新規作成
+    list_id = _get_or_create_tasklist(service, task.category)
     t = service.tasks().insert(tasklist=list_id, body=body).execute()
     return t["id"]
 
