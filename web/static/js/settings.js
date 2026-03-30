@@ -4,6 +4,7 @@ import { esc } from './utils.js';
 // ── Tab visibility ────────────────────────────────────────────────────
 const OPTIONAL_TABS = [
   { id: 'dashboard', label: 'ダッシュボード', navType: 'nav' },
+  { id: 'chat',      label: 'チャット',       navType: 'nav' },
   { id: 'diary',     label: '日記・ブログ',   navType: 'nav' },
   { id: 'lang',      label: '語学学習',       navType: 'nav' },
   { id: 'longterm',  label: '長期タスク',     navType: 'grid' },
