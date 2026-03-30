@@ -2,18 +2,51 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
+import os
+import secrets as _secrets
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from core.models import AppData, Category, ChecklistTemplate, Task
 
 if TYPE_CHECKING:
     pass
+
+# ── セッション認証 ────────────────────────────────────────────────────────────
+
+_AUTH_USER = os.environ.get("ZZZMEMO_USER", "")
+_AUTH_PASS = os.environ.get("ZZZMEMO_PASS", "")
+_AUTH_ENABLED = bool(_AUTH_USER and _AUTH_PASS)
+GOOGLE_EMAIL = os.environ.get("ZZZMEMO_GOOGLE_EMAIL", "")
+SESSION_COOKIE = "zzzmemo_session"
+SESSION_MAX_AGE = 90 * 24 * 3600  # 90日
+
+# 認証が何も設定されていない = ローカル開発モード（認証スキップ）
+AUTH_REQUIRED = _AUTH_ENABLED or bool(GOOGLE_EMAIL)
+
+
+def make_session_token() -> str:
+    """認証情報から決定論的なセッショントークンを生成（ストレージ不要）。"""
+    if _AUTH_ENABLED:
+        key = f"{_AUTH_USER}:{_AUTH_PASS}".encode()
+    else:
+        key = GOOGLE_EMAIL.encode() if GOOGLE_EMAIL else b"zzzmemo-open"
+    return hmac.new(key, b"zzzmemo-session-v1", hashlib.sha256).hexdigest()
+
+
+def verify_session(request: Request) -> bool:
+    if not AUTH_REQUIRED:
+        return True
+    token = request.cookies.get(SESSION_COOKIE, "")
+    return _secrets.compare_digest(token, make_session_token())
+
 
 # ── パス解決 ──────────────────────────────────────────────────────────────────
 

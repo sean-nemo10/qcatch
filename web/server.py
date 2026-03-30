@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 import os
 import secrets
@@ -37,32 +35,50 @@ from web.routers import (
 if os.environ.get("HOST", "127.0.0.1") in ("127.0.0.1", "localhost"):
     os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
-# ── セッション Cookie 認証 ────────────────────────────────────────────────────
+# ── 認証設定（deps.py の共有ヘルパーを使用） ─────────────────────────────────
 
-_AUTH_USER = os.environ.get("ZZZMEMO_USER", "")
-_AUTH_PASS = os.environ.get("ZZZMEMO_PASS", "")
-_AUTH_ENABLED = bool(_AUTH_USER and _AUTH_PASS)
-_SESSION_COOKIE = "zzzmemo_session"
+from web.deps import (  # noqa: E402  (deps は下で import される前にここで必要)
+    AUTH_REQUIRED,
+    GOOGLE_EMAIL,
+    SESSION_COOKIE,
+    SESSION_MAX_AGE,
+    _AUTH_ENABLED,
+    make_session_token,
+    verify_session,
+)
 
 # 認証不要なパス
 _PUBLIC_PATHS = {"/login", "/favicon.ico", "/manifest.json", "/sw.js"}
 
 
-def _make_session_token() -> str:
-    """認証情報から決定論的なセッショントークンを生成（ストレージ不要）。"""
-    key = f"{_AUTH_USER}:{_AUTH_PASS}".encode()
-    return hmac.new(key, b"zzzmemo-session-v1", hashlib.sha256).hexdigest()
+def _render_login_page(error: str = "") -> str:
+    err_html = ""
+    if error == "1":
+        err_html = '<p class="err">ユーザー名またはパスワードが違います</p>'
+    elif error == "unauthorized":
+        err_html = '<p class="err">このアカウントはアクセスできません</p>'
 
+    password_block = ""
+    if _AUTH_ENABLED:
+        password_block = """
+    <form method="post" action="/login">
+      <label>ユーザー名</label>
+      <input name="username" type="text" autocomplete="username" autofocus required>
+      <label>パスワード</label>
+      <input name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">ログイン</button>
+    </form>"""
 
-def _verify_session(request: Request) -> bool:
-    if not _AUTH_ENABLED:
-        return True
-    token = request.cookies.get(_SESSION_COOKIE, "")
-    return secrets.compare_digest(token, _make_session_token())
+    google_block = ""
+    if GOOGLE_EMAIL:
+        divider = '<div class="divider">または</div>' if _AUTH_ENABLED else ""
+        google_block = f"""{divider}
+    <a href="/api/auth/login" class="google-btn">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+      Googleでログイン
+    </a>"""
 
-
-_LOGIN_HTML = """\
-<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -79,27 +95,30 @@ _LOGIN_HTML = """\
   input{{width:100%;background:#0f0f1a;border:1px solid #2a2a3e;color:#e2e8f0;
     border-radius:8px;padding:10px 14px;font-size:15px;margin-bottom:18px}}
   input:focus{{outline:none;border-color:#818cf8}}
-  button{{width:100%;background:#818cf8;color:#fff;border:none;border-radius:8px;
+  button[type=submit]{{width:100%;background:#818cf8;color:#fff;border:none;border-radius:8px;
     padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
-  button:hover{{background:#6366f1}}
+  button[type=submit]:hover{{background:#6366f1}}
+  .google-btn{{display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;
+    padding:11px;font-size:15px;font-weight:500;text-decoration:none;cursor:pointer}}
+  .google-btn:hover{{background:#f8f9fa}}
+  .divider{{text-align:center;color:#4a5568;font-size:13px;margin:16px 0;
+    position:relative}}
+  .divider::before,.divider::after{{content:"";position:absolute;top:50%;
+    width:42%;height:1px;background:#2a2a3e}}
+  .divider::before{{left:0}}.divider::after{{right:0}}
   .err{{color:#f87171;font-size:13px;text-align:center;margin-bottom:14px}}
 </style>
 </head>
 <body>
 <div class="card">
   <h1>ZzzMemo</h1>
-  {error}
-  <form method="post" action="/login">
-    <label>ユーザー名</label>
-    <input name="username" type="text" autocomplete="username" autofocus required>
-    <label>パスワード</label>
-    <input name="password" type="password" autocomplete="current-password" required>
-    <button type="submit">ログイン</button>
-  </form>
+  {err_html}
+  {password_block}
+  {google_block}
 </div>
 </body>
-</html>
-"""
+</html>"""
 
 
 # ── パス解決 ──────────────────────────────────────────────────────────────────
@@ -157,6 +176,13 @@ def _auto_sync_job() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Google client_secret.json を環境変数から復元（Fly.io 用）
+    _secret_json = os.environ.get("GOOGLE_CLIENT_SECRET_JSON", "")
+    if _secret_json:
+        secret_path = _BASE_DIR / "data" / "client_secret.json"
+        secret_path.parent.mkdir(parents=True, exist_ok=True)
+        secret_path.write_text(_secret_json, encoding="utf-8")
+
     deps.app_data, stats = storage.initialize()
     promoted = promote_longterm_tasks(deps.app_data)
     if promoted:
@@ -204,8 +230,8 @@ app.add_middleware(
 @app.middleware("http")
 async def session_auth_middleware(request: Request, call_next):
     path = request.url.path
-    if _AUTH_ENABLED and path not in _PUBLIC_PATHS and not path.startswith("/static/"):
-        if not _verify_session(request):
+    if AUTH_REQUIRED and path not in _PUBLIC_PATHS and not path.startswith("/static/"):
+        if not verify_session(request):
             if path.startswith("/api/"):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
             return RedirectResponse(url="/login", status_code=302)
@@ -217,30 +243,25 @@ async def session_auth_middleware(request: Request, call_next):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(error: str = ""):
-    err_html = (
-        '<p class="err">ユーザー名またはパスワードが違います</p>' if error else ""
-    )
-    return HTMLResponse(_LOGIN_HTML.format(error=err_html))
+    return HTMLResponse(_render_login_page(error))
 
 
 @app.post("/login")
-def login_submit(
-    response: RedirectResponse,
-    username: str = Form(...),
-    password: str = Form(...),
-):
+def login_submit(username: str = Form(...), password: str = Form(...)):
+    from web.deps import _AUTH_USER, _AUTH_PASS
+
     user_ok = secrets.compare_digest(username.encode(), _AUTH_USER.encode())
     pass_ok = secrets.compare_digest(password.encode(), _AUTH_PASS.encode())
     if _AUTH_ENABLED and not (user_ok and pass_ok):
         return RedirectResponse(url="/login?error=1", status_code=303)
     resp = RedirectResponse(url="/", status_code=303)
     resp.set_cookie(
-        _SESSION_COOKIE,
-        _make_session_token(),
+        SESSION_COOKIE,
+        make_session_token(),
         httponly=True,
-        secure=_AUTH_ENABLED,
+        secure=AUTH_REQUIRED,
         samesite="lax",
-        max_age=90 * 24 * 3600,  # 90日
+        max_age=SESSION_MAX_AGE,
     )
     return resp
 
@@ -248,7 +269,7 @@ def login_submit(
 @app.get("/logout")
 def logout():
     resp = RedirectResponse(url="/login", status_code=302)
-    resp.delete_cookie(_SESSION_COOKIE)
+    resp.delete_cookie(SESSION_COOKIE)
     return resp
 
 

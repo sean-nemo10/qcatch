@@ -47,13 +47,39 @@ def auth_login():
 
 @router.get("/api/auth/callback")
 def auth_callback(request: Request):
+    import secrets as _sec
     from core import google_sync
+    from web.deps import (
+        GOOGLE_EMAIL,
+        SESSION_COOKIE,
+        SESSION_MAX_AGE,
+        AUTH_REQUIRED,
+        make_session_token,
+    )
 
     try:
         google_sync.handle_callback(str(request.url))
-        return RedirectResponse(url="/?auth=success")
     except Exception as e:
         return RedirectResponse(url=f"/?auth=error&msg={str(e)[:100]}")
+
+    # Google ログイン認証: メールアドレスを確認してセッション Cookie をセット
+    if GOOGLE_EMAIL:
+        email = google_sync.get_authenticated_email()
+        if not email or not _sec.compare_digest(email.lower(), GOOGLE_EMAIL.lower()):
+            google_sync.revoke_credentials()
+            return RedirectResponse(url="/login?error=unauthorized", status_code=302)
+        resp = RedirectResponse(url="/", status_code=302)
+        resp.set_cookie(
+            SESSION_COOKIE,
+            make_session_token(),
+            httponly=True,
+            secure=AUTH_REQUIRED,
+            samesite="lax",
+            max_age=SESSION_MAX_AGE,
+        )
+        return resp
+
+    return RedirectResponse(url="/?auth=success")
 
 
 @router.post("/api/auth/logout", status_code=204)

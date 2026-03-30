@@ -8,6 +8,7 @@ primary_region = "nrt"
   HOST = "0.0.0.0"
   ZZZMEMO_USER = ""
   ZZZMEMO_PASS = ""
+  GOOGLE_REDIRECT_URI = "https://zzzmemo.fly.dev/api/auth/callback"
 
 [http_service]
   internal_port = 8080

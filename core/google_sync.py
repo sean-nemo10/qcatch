@@ -12,15 +12,25 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = Path(__file__).parent.parent
 
-CLIENT_SECRETS_FILE = BASE_DIR / "client_secret.json"
+CLIENT_SECRETS_FILE = BASE_DIR / "data" / "client_secret.json"
+# ローカル開発時のフォールバック（プロジェクトルートにある場合）
+if not CLIENT_SECRETS_FILE.exists():
+    CLIENT_SECRETS_FILE = BASE_DIR / "client_secret.json"
+
 TOKEN_FILE = BASE_DIR / "data" / "token.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "openid",
 ]
 
-REDIRECT_URI = "http://localhost:5000/api/auth/callback"
+import os as _os
+
+REDIRECT_URI = _os.environ.get(
+    "GOOGLE_REDIRECT_URI", "http://localhost:5000/api/auth/callback"
+)
 
 _pending_flow = None  # get_auth_url() → handle_callback() 間で Flow を保持
 
@@ -99,6 +109,21 @@ def revoke_credentials() -> None:
     """保存済みトークンを削除して未認証状態に戻す。"""
     if TOKEN_FILE.exists():
         TOKEN_FILE.unlink()
+
+
+def get_authenticated_email() -> str | None:
+    """認証済みユーザーのメールアドレスを返す。未認証または失敗時は None。"""
+    creds = get_credentials()
+    if not creds:
+        return None
+    try:
+        from googleapiclient.discovery import build
+
+        service = build("oauth2", "v2", credentials=creds)
+        info = service.userinfo().get().execute()
+        return info.get("email")
+    except Exception:
+        return None
 
 
 # ── 同期ロジック ─────────────────────────────────────────────────────────────
