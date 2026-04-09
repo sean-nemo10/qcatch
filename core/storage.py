@@ -288,7 +288,7 @@ def save_data(data: AppData) -> None:
 
 def save_data_bg(data: AppData) -> None:
     """バックグラウンドスレッドで保存（HTTPレスポンスをブロックしない）。"""
-    threading.Thread(target=save_data, args=(data,), daemon=True).start()
+    threading.Thread(target=save_data, args=(data,)).start()
 
 
 # ── 日記 読み書き ─────────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ def save_diary(data: DiaryData) -> None:
 
 
 def save_diary_bg(data: DiaryData) -> None:
-    threading.Thread(target=save_diary, args=(data,), daemon=True).start()
+    threading.Thread(target=save_diary, args=(data,)).start()
 
 
 # ── ブログ 読み書き ───────────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ def save_blog(data: BlogData) -> None:
 
 
 def save_blog_bg(data: BlogData) -> None:
-    threading.Thread(target=save_blog, args=(data,), daemon=True).start()
+    threading.Thread(target=save_blog, args=(data,)).start()
 
 
 # ── フラッシュカード 読み書き ──────────────────────────────────────────────────
@@ -457,7 +457,7 @@ def save_flashcards(deck: FlashDeck) -> None:
 
 
 def save_flashcards_bg(deck: FlashDeck) -> None:
-    threading.Thread(target=save_flashcards, args=(deck,), daemon=True).start()
+    threading.Thread(target=save_flashcards, args=(deck,)).start()
 
 
 def sm2_update(card, quality: int):
