@@ -2,6 +2,9 @@ import { api } from './api.js';
 import { state, WEEKDAY_NAMES, CAT_COLORS, IMP_LABEL } from './state.js';
 import { esc, fmtDate, fmtDatetime, calcScore, scoreBadge, scoreLabel, isDue } from './utils.js';
 
+// ── Dashboard state ───────────────────────────────────────────────────
+let _dashAllTasks = [];
+
 // ── Dashboard load ────────────────────────────────────────────────────
 export async function loadDashboard() {
   const container = document.getElementById('dashboard-content');
@@ -39,6 +42,7 @@ export async function loadDashboard() {
       if (aPos !== bPos) return aPos - bPos;
       return calcScore(b, clData.checklists).score - calcScore(a, clData.checklists).score;
     });
+    _dashAllTasks = tasks;
     const hasAnything = activeCls.length || tasks.length || recData.recurring.length || inboxData.tasks.length;
 
     if (clWithDue.length) {
@@ -134,9 +138,12 @@ export function renderClDashItem(cl) {
 
 export function renderTaskDashItem(t, checklists) {
   const catClass = CAT_COLORS[t.category] || 'cat-その他';
+  const catBadge = t.category ? `<span class="task-cat ${catClass}" style="font-size:10px;padding:1px 7px">${esc(t.category)}</span>` : '';
   const subtag = t.tags && t.tags[0] ? `<span class="task-subtag">📁 ${esc(t.tags[0])}</span>` : '';
   const badge = scoreBadge(t, checklists || []);
   const tip = scoreLabel(t, checklists || []);
+  const dueColor = t.due_date && new Date(t.due_date) <= new Date() ? '#ff7043' : '#69f0ae';
+  const duePart = t.due_date ? `<span style="color:${dueColor}">📅${fmtDate(t.due_date)}</span>` : '';
   return `<div class="dash-item type-task" id="dash-${t.id}" draggable="true"
     ondragstart="dashDragStart(event,'${t.id}')"
     ondragover="dashDragOver(event,'${t.id}')"
@@ -144,11 +151,12 @@ export function renderTaskDashItem(t, checklists) {
     ondrop="dashDrop(event,'${t.id}')">
     <div class="dash-drag-handle" title="ドラッグして並び替え">⠿</div>
     <div class="dash-item-body">
-      <div class="dash-item-text" title="${esc(tip)}">${esc(t.text)}${subtag}${badge}</div>
-      <div class="dash-item-meta">${t.category?`<span class="task-cat ${catClass}">${esc(t.category)}</span> `:''}${t.due_date?`<span style="color:${new Date(t.due_date)<=new Date()?'#ff7043':'#69f0ae'}">📅${fmtDate(t.due_date)}</span> `:''}${fmtDate(t.created_at)}</div>
+      <div class="dash-item-text" title="${esc(tip)}">${catBadge} ${esc(t.text)}${subtag}${badge}</div>
+      <div class="dash-item-meta">${duePart}${duePart?' · ':''}${fmtDate(t.created_at)}</div>
     </div>
     <div class="dash-item-actions">
       <button class="imp-btn imp-${t.importance||'medium'}" onclick="cycleImportance('${t.id}','${t.importance||'medium'}')" title="重要度">${IMP_LABEL[t.importance||'medium']}</button>
+      <button class="btn btn-ghost btn-sm" onclick="openTaskEditModal('${t.id}')">編集</button>
       <button class="btn btn-success btn-sm" onclick="dashComplete('${t.id}')">完了</button>
       <button class="btn btn-ghost btn-sm" onclick="dashTrash('${t.id}')">削除</button>
     </div>
@@ -246,3 +254,48 @@ export async function dashDrop(event, targetId) {
   } catch(e) { window.showStatus('並び替えエラー: ' + e.message, 'error'); }
 }
 window.dashDrop = dashDrop;
+
+// ── タスク編集モーダル ────────────────────────────────────────────────
+export function openTaskEditModal(taskId) {
+  const task = _dashAllTasks.find(t => t.id === taskId);
+  if (!task) return;
+  document.getElementById('edit-task-id').value = taskId;
+  document.getElementById('edit-task-text').value = task.text;
+  document.getElementById('edit-task-cat').value = task.category || '';
+  document.getElementById('edit-task-imp').value = task.importance || 'medium';
+  document.getElementById('edit-task-due').value = task.due_date
+    ? task.due_date.slice(0, 10)
+    : '';
+  const modal = document.getElementById('task-edit-modal');
+  modal.classList.add('show');
+  setTimeout(() => document.getElementById('edit-task-text')?.focus(), 50);
+}
+window.openTaskEditModal = openTaskEditModal;
+
+export function closeTaskEditModal() {
+  document.getElementById('task-edit-modal').classList.remove('show');
+}
+window.closeTaskEditModal = closeTaskEditModal;
+
+export async function saveTaskEdit() {
+  const id = document.getElementById('edit-task-id').value;
+  const text = document.getElementById('edit-task-text').value.trim();
+  const category = document.getElementById('edit-task-cat').value || null;
+  const importance = document.getElementById('edit-task-imp').value;
+  const dueVal = document.getElementById('edit-task-due').value;
+  const due_date = dueVal ? dueVal + 'T00:00:00' : null;
+
+  if (!text) { window.showStatus('タスク内容を入力してください', 'error'); return; }
+
+  try {
+    const patch = { text, importance };
+    if (category !== undefined) patch.category = category;
+    // due_date: null でも送って上書きできるように model_fields_set を活用
+    patch.due_date = due_date;
+    await api('PATCH', `/api/tasks/${id}`, patch);
+    closeTaskEditModal();
+    loadDashboard();
+    window.showStatus('タスクを更新しました', 'success', 2000);
+  } catch(e) { window.showStatus('更新エラー: ' + e.message, 'error'); }
+}
+window.saveTaskEdit = saveTaskEdit;

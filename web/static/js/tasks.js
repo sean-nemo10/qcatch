@@ -572,19 +572,19 @@ export function closeModal() {
 }
 window.closeModal = closeModal;
 
-// ── Split suggestion modal ────────────────────────────────────────────
+// ── Split suggestion (auto-apply) ────────────────────────────────────
 async function autoSuggestSplits() {
   try {
     const data = await api('POST', '/api/suggest-splits', {
       api_key: window.getApiKey ? window.getApiKey() : (localStorage.getItem('qcatch_api_key') || null)
     });
     if (!data.suggestions.length) return;
-    state.pendingSplits = data.suggestions;
-    const banner = document.getElementById('auto-split-banner');
-    const text = document.getElementById('auto-split-text');
-    if (banner && text) {
-      text.textContent = `AI がサブフォルダを ${data.suggestions.length} 件提案しています`;
-      banner.style.display = 'flex';
+    const res = await api('POST', '/api/apply-splits', {
+      splits: data.suggestions.map(s => ({task_id: s.task_id, suggested_tag: s.suggested_tag}))
+    });
+    if (res.applied > 0) {
+      window.showStatus(`📁 ${res.applied} 件のサブフォルダを自動設定しました`, 'success');
+      loadTasks();
     }
   } catch(e) { /* silent — no API key or network error */ }
 }
@@ -670,3 +670,6 @@ export function closeSplitsModal() {
   document.getElementById('modal-splits').classList.remove('show');
 }
 window.closeSplitsModal = closeSplitsModal;
+
+// Allow inbox.js to re-trigger after sort
+window.autoSuggestSplits = autoSuggestSplits;

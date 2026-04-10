@@ -67,13 +67,13 @@ def _build_sort_prompt(tasks_text: str) -> str:
         f"今日の日付: {today}\n\n"
         f"{_get_few_shot_text()}"
         f"以下のタスクリストを「{cats}」のいずれかに分類してください。\n"
+        f"各タスクには id= が付いています。必ず id をそのまま返してください。\n"
         f"タスクのテキストに「明日」「来週月曜」「月末」「3月31日」など日時を表す表現が含まれる場合は、"
         f"今日の日付を基準に ISO 8601 形式（YYYY-MM-DD）の due_date を設定してください。\n"
-        f"日時の表現がない場合は due_date を null にしてください。\n"
-        f"空のカテゴリは省略してください。\n\n"
+        f"日時の表現がない場合は due_date を null にしてください。\n\n"
         f"タスクリスト:\n{tasks_text}\n\n"
         f"以下の JSON 形式のみで返してください（説明文不要）:\n"
-        f'{{"tasks": [{{"text": "タスク本文", "category": "カテゴリ", "due_date": "YYYY-MM-DD or null"}}]}}'
+        f'{{"tasks": [{{"id": "タスクID", "category": "カテゴリ", "due_date": "YYYY-MM-DD or null"}}]}}'
     )
 
 
@@ -90,16 +90,16 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
             "google-genai が未インストールです: pip install google-genai"
         )
 
-    tasks_text = "\n".join(f"- {t.text}" for t in tasks)
+    tasks_text = "\n".join(f"id={t.id} text={t.text}" for t in tasks)
     client = genai.Client(api_key=api_key)
 
-    # 構造化出力を試みる
+    # 構造化出力を試みる（IDベース）
     try:
         from pydantic import BaseModel
         from typing import Literal, Optional as Opt
 
         class _Item(BaseModel):
-            text: str
+            id: str
             category: Literal["仕事", "プライベート", "買い物", "学習", "その他"]
             due_date: Opt[str] = None  # YYYY-MM-DD or null
 
@@ -110,8 +110,10 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
         prompt = (
             f"今日の日付: {today}\n\n"
             + _get_few_shot_text()
-            + f"以下のタスクを {CATEGORIES} のいずれかに分類し、テキスト中の日時表現（「明日」「来週」「月末」等）を"
-            f"今日の日付を基準に ISO 8601 形式の due_date として設定してください。日時がなければ null。\n\n{tasks_text}"
+            + f"以下のタスクを {CATEGORIES} のいずれかに分類してください。"
+            f"各行の id= をそのまま返すこと。\n"
+            f"テキスト中の日時表現（「明日」「来週」「月末」等）は今日の日付を基準にISO 8601のdue_dateで返し、なければnull。\n\n"
+            + tasks_text
         )
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -123,9 +125,9 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
             ),
         )
         result = _Result.model_validate_json(response.text)
-        cat_map = {item.text: item.category for item in result.tasks}
-        due_map = {item.text: item.due_date for item in result.tasks if item.due_date}
-        return _apply_categories(tasks, cat_map, due_map)
+        id_cat_map = {item.id: item.category for item in result.tasks}
+        id_due_map = {item.id: item.due_date for item in result.tasks if item.due_date}
+        return _apply_categories_by_id(tasks, id_cat_map, id_due_map)
     except Exception:
         pass
 
@@ -149,11 +151,11 @@ def sort_with_ollama(
     except ImportError:
         raise RuntimeError("ollama が未インストールです: pip install ollama")
 
-    tasks_text = "\n".join(f"- {t.text}" for t in tasks)
+    tasks_text = "\n".join(f"id={t.id} text={t.text}" for t in tasks)
     prompt = (
         f"以下のタスクを 'その他','仕事','プライベート','買い物','学習' に分類し、"
-        f"必ず次の JSON 形式のみを返すこと（説明文不要）:\n"
-        f'{{"tasks": [{{"text": "...", "category": "..."}}]}}\n\n{tasks_text}'
+        f"各行の id= をそのまま使って、必ず次の JSON 形式のみを返すこと（説明文不要）:\n"
+        f'{{"tasks": [{{"id": "...", "category": "..."}}]}}\n\n{tasks_text}'
     )
     response = ollama_lib.chat(
         model=model,
@@ -194,7 +196,7 @@ def sort_with_anthropic(tasks: list[Task], api_key: str) -> list[Task]:
 
 # ── スプリット提案 ────────────────────────────────────────────────────────────
 
-SPLIT_THRESHOLD = 5
+SPLIT_THRESHOLD = 3
 
 
 def suggest_splits(data: AppData, api_key: str) -> list[dict]:
@@ -340,7 +342,7 @@ def suggest_tags(data: AppData, api_key: str) -> list[dict]:
 
 
 def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
-    """JSON レスポンスをパースしてカテゴリ・due_date を適用する。"""
+    """JSON レスポンスをパースしてカテゴリ・due_date を適用する。IDベース優先。"""
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -349,6 +351,22 @@ def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
     try:
         data = json.loads(text)
         items = data.get("tasks", [])
+
+        # IDベースマッチング（信頼性が高い）
+        id_cat_map = {
+            item["id"]: item["category"]
+            for item in items
+            if "id" in item and "category" in item
+        }
+        if id_cat_map:
+            id_due_map = {
+                item["id"]: item["due_date"]
+                for item in items
+                if "id" in item and item.get("due_date")
+            }
+            return _apply_categories_by_id(tasks, id_cat_map, id_due_map)
+
+        # テキストベースマッチング（フォールバック）
         cat_map = {
             item["text"]: item["category"]
             for item in items
@@ -362,6 +380,29 @@ def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
         return _apply_categories(tasks, cat_map, due_map)
     except Exception:
         return tasks
+
+
+def _apply_categories_by_id(
+    tasks: list[Task],
+    id_cat_map: dict[str, str],
+    id_due_map: dict[str, str] | None = None,
+) -> list[Task]:
+    """IDをキーにカテゴリ・due_date を適用する。"""
+    id_due_map = id_due_map or {}
+    for task in tasks:
+        cat = id_cat_map.get(task.id)
+        if cat and cat in CATEGORIES:
+            task.category = cat
+        else:
+            task.category = "その他"
+        task.status = "todo"
+        due_str = id_due_map.get(task.id)
+        if due_str:
+            try:
+                task.due_date = datetime.strptime(due_str, "%Y-%m-%d")
+            except ValueError:
+                pass
+    return tasks
 
 
 def _apply_categories(

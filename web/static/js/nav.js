@@ -22,16 +22,22 @@ window.showStatus = showStatus;
 // ── Tab switching ─────────────────────────────────────────────────────
 export function switchTab(name) {
   if (name === 'inbox') { switchTab('home'); return; }
-  if (name === 'tasks') { switchTab('dashboard'); return; }
   document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
   document.getElementById('pane-' + name).classList.add('active');
   state.activePane = name;
+  window._activePane = name;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const navBtn = document.querySelector(`.nav-btn[data-tab="${name}"]`);
   if (navBtn) navBtn.classList.add('active');
+  // FAB: ホーム以外で表示（オーバーレイは常に閉じる）
+  const fab = document.getElementById('fab-add');
+  const overlay = document.getElementById('quick-add-overlay');
+  if (fab) fab.style.display = name === 'home' ? 'none' : 'flex';
+  if (overlay) overlay.style.display = 'none';
   if (name === 'home') { loadInbox(); updateHomeBadges(); setTimeout(() => document.getElementById('quick-input')?.focus(), 50); }
   else if (name === 'chat') loadApiKeyToChat();
   else if (name === 'dashboard') loadDashboard();
+  else if (name === 'tasks') loadTasks();
   else if (name === 'longterm') loadLongterm();
   else if (name === 'checklists') loadChecklists();
   else if (name === 'diary') initDiaryPane();
