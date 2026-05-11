@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 _AUTH_USER = os.environ.get("ZZZMEMO_USER", "")
 _AUTH_PASS = os.environ.get("ZZZMEMO_PASS", "")
 _AUTH_ENABLED = bool(_AUTH_USER and _AUTH_PASS)
+INTERNAL_API_KEY = os.environ.get("ZZZMEMO_API_KEY", "")
 GOOGLE_EMAIL = os.environ.get("ZZZMEMO_GOOGLE_EMAIL", "")
 SESSION_COOKIE = "zzzmemo_session"
 SESSION_MAX_AGE = 90 * 24 * 3600  # 90日
@@ -44,6 +45,10 @@ def make_session_token() -> str:
 def verify_session(request: Request) -> bool:
     if not AUTH_REQUIRED:
         return True
+    if INTERNAL_API_KEY:
+        api_key = request.headers.get("X-Api-Key", "")
+        if api_key and _secrets.compare_digest(api_key, INTERNAL_API_KEY):
+            return True
     token = request.cookies.get(SESSION_COOKIE, "")
     return _secrets.compare_digest(token, make_session_token())
 
