@@ -11,6 +11,7 @@ import './inbox.js';
 import './tasks.js';
 import './checklists.js';
 import './recurring.js';
+import './wishlist.js';
 import './sort.js';
 import './diary.js';
 import './lang.js';
@@ -26,6 +27,10 @@ import { updateMicButtons } from './voice.js';
 // ── Service Worker ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+  // 新しい SW が有効化されたら自動リロード
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────

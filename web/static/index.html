@@ -67,6 +67,8 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;background:var(--border);color:var(--accent);font-weight:600}
 /* ── チェックリスト ── */
 .checklist-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.checklist-card.cl-folder{background:var(--surface-deep);border-left:3px solid var(--accent)}
+.cl-children{padding:4px 0 4px 0;border-left:1px dashed var(--border);margin-left:24px}
 .checklist-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--border)}
 .checklist-head h3{flex:1;font-size:15px;font-weight:600}
 .checklist-items{padding:10px 16px;display:flex;flex-direction:column;gap:6px}
@@ -82,6 +84,17 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 .recurring-info{flex:1}
 .recurring-info .text{font-size:14px;font-weight:600}
 .recurring-info .meta{font-size:12px;color:var(--text-dim);margin-top:3px}
+.wishlist-row{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.wishlist-row.in-cart{background:#1a2a10;border-color:#2e7d32}
+.wishlist-text{flex:1;font-size:15px;color:var(--text)}
+.cart-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0;transition:all .15s}
+.cart-btn.active{background:#2e7d32;border-color:#2e7d32;color:#fff}
+.cart-btn:hover{border-color:var(--accent)}
+.wishlist-history{margin-top:20px;padding:14px 16px;background:var(--surface-deep);border-radius:10px}
+.history-title{font-size:13px;color:var(--text-dim);margin-bottom:10px}
+.history-chips{display:flex;flex-wrap:wrap;gap:6px}
+.history-chip{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);border-radius:14px;padding:5px 12px;font-size:13px;cursor:pointer;transition:all .15s}
+.history-chip:hover{border-color:var(--accent);color:var(--text)}
 /* ── フォーム ── */
 .form-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
 .form-card h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent)}
@@ -457,6 +470,11 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
           <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>
           <span class="home-label">定期タスク</span>
         </div>
+        <div class="home-card" tabindex="0" onclick="switchTab('shopping')">
+          <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></span>
+          <span class="home-label">買い物リスト</span>
+          <span class="home-badge" id="shopping-count">0</span>
+        </div>
         <div class="home-card" tabindex="0" onclick="switchTab('settings')" style="grid-column:span 2">
           <span class="home-icon"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg></span>
           <span class="home-label">設定</span>
@@ -539,6 +557,12 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
     <h3>新しいチェックリスト</h3>
     <input id="cl-name" aria-label="チェックリスト名" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
     <div class="form-row" style="align-items:center;margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">親（任意）</label>
+      <select id="cl-parent" aria-label="親リスト" class="form-select" style="margin:0;flex:1">
+        <option value="">(ルート)</option>
+      </select>
+    </div>
+    <div class="form-row" style="align-items:center;margin-bottom:10px">
       <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">期日（任意）</label>
       <input id="cl-due-date" aria-label="期日" type="date" class="form-input" style="margin:0;flex:1">
       <input id="cl-due-time" aria-label="時刻（任意）" type="time" step="300" class="form-input" style="margin:0;width:110px" placeholder="時刻（任意）">
@@ -594,6 +618,34 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
   <div id="recurring-list"></div>
 </div>
 
+<!-- ── 買い物リスト (wishlist) ── -->
+<div id="pane-shopping" class="pane content">
+  <div style="padding:12px 16px 0">
+    <button class="btn btn-ghost btn-sm" onclick="switchTab('home')" style="gap:6px">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      ホームに戻る
+    </button>
+  </div>
+  <div class="form-card">
+    <h3>買い物リストに追加</h3>
+    <div class="form-row" style="gap:8px">
+      <input id="shopping-input" class="form-input" list="shopping-datalist"
+             placeholder="商品名（例：シャンプー）"
+             onkeydown="handleWishlistEnter(event,'shopping')" autocomplete="off">
+      <datalist id="shopping-datalist"></datalist>
+      <button class="btn btn-primary" onclick="addWishlistItem('shopping')">追加</button>
+    </div>
+    <div style="margin-top:10px">
+      <button id="shopping-promote-btn" class="btn btn-secondary btn-sm"
+              onclick="promoteAllWishlist('shopping')" style="width:100%">
+        🛒 全部ダッシュボードへ
+      </button>
+    </div>
+  </div>
+  <div id="shopping-list"></div>
+  <div id="shopping-history" class="wishlist-history"></div>
+</div>
+
 <!-- ── 設定 ── -->
 <div id="pane-settings" class="pane content">
   <div style="padding:12px 16px 0">
@@ -601,6 +653,11 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       ホームに戻る
     </button>
+  </div>
+  <div class="form-card">
+    <h3>アプリの更新</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">キャッシュをクリアして最新バージョンを読み込みます。スマホでうまく更新されないときに使ってください。</p>
+    <button class="btn btn-secondary btn-sm" onclick="clearCacheAndReload()" style="width:100%">🔄 キャッシュをクリアして更新</button>
   </div>
   <div class="form-card">
     <h3>音声入力</h3>

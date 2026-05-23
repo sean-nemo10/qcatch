@@ -8,7 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-TaskStatus = Literal["inbox", "todo", "done", "trashed", "longterm"]
+TaskStatus = Literal["inbox", "todo", "done", "trashed", "longterm", "wishlist"]
 Category = Literal["仕事", "プライベート", "買い物", "学習", "その他"]
 Importance = Literal["high", "medium", "low"]
 
@@ -41,6 +41,8 @@ class ChecklistTemplate(BaseModel):
     name: str
     items: list[ChecklistItem] = Field(default_factory=list)
     due_date: Optional[datetime] = None
+    parent_id: Optional[str] = None  # 階層構造（None=ルート）
+    sort_order: int = 0  # 同階層内の表示順
 
 
 class RecurringRule(BaseModel):

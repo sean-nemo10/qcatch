@@ -4,6 +4,7 @@ import { loadInbox, runSort } from './inbox.js';
 import { loadTasks, loadLongterm } from './tasks.js';
 import { loadChecklists } from './checklists.js';
 import { loadRecurring } from './recurring.js';
+import { loadWishlist, WISHLISTS } from './wishlist.js';
 import { loadSettings } from './settings.js';
 import { loadDashboard } from './dashboard.js';
 import { initDiaryPane } from './diary.js';
@@ -43,6 +44,7 @@ export function switchTab(name) {
   else if (name === 'diary') initDiaryPane();
   else if (name === 'lang') initLangPane();
   else if (name === 'recurring') loadRecurring();
+  else if (WISHLISTS[name]) loadWishlist(name);
   else if (name === 'settings') loadSettings();
 }
 window.switchTab = switchTab;
@@ -87,12 +89,17 @@ export async function updateHomeBadges() {
     const inbox = await api('GET', '/api/tasks?status=inbox');
     const ic = document.getElementById('home-inbox-count');
     if (ic) ic.textContent = inbox.tasks.length;
+    const wl = await api('GET', '/api/tasks?status=wishlist');
+    for (const [key, cfg] of Object.entries(WISHLISTS)) {
+      const el = document.getElementById(`${key}-count`);
+      if (el) el.textContent = wl.tasks.filter(t => t.category === cfg.category).length;
+    }
   } catch(e) {}
 }
 window.updateHomeBadges = updateHomeBadges;
 
 // ── Home screen keyboard nav ──────────────────────────────────────────
-export const HOME_TABS = ['longterm','checklists','recurring','settings'];
+export const HOME_TABS = ['longterm','checklists','recurring','shopping','settings'];
 let _homeFocusIdx = 0;
 
 export function updateHomeFocus() {

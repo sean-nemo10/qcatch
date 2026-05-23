@@ -17,7 +17,12 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 
 from core import storage
-from core.storage import promote_longterm_tasks, save_data, save_data_bg
+from core.storage import (
+    check_recurring,
+    promote_longterm_tasks,
+    save_data,
+    save_data_bg,
+)
 from web import deps
 from web.routers import (
     blog,
@@ -27,6 +32,7 @@ from web.routers import (
     diary,
     flashcards,
     lang,
+    recurring,
     sync,
     tasks,
 )
@@ -156,6 +162,16 @@ deps.logger = _setup_logging(_BASE_DIR)
 # ── 自動同期ジョブ ────────────────────────────────────────────────────────────
 
 
+def _recurring_check_job() -> None:
+    try:
+        added = check_recurring(deps.app_data)
+        if added:
+            save_data_bg(deps.app_data)
+            deps.logger.info(f"定期タスク生成: {len(added)}件 — {added}")
+    except Exception as e:
+        deps.logger.error(f"定期タスクチェックエラー: {e}", exc_info=True)
+
+
 def _auto_sync_job() -> None:
     from core import google_sync
 
@@ -200,8 +216,11 @@ async def lifespan(app: FastAPI):
         cfg = deps.load_config()
         interval_min = cfg.get("sync_interval_minutes", 30)
         scheduler.add_job(_auto_sync_job, "interval", minutes=interval_min)
+        scheduler.add_job(_recurring_check_job, "cron", hour="*", minute=5)
         scheduler.start()
-        deps.logger.info(f"自動同期スケジューラ起動（{interval_min}分ごと）")
+        deps.logger.info(
+            f"スケジューラ起動 — 自動同期:{interval_min}分ごと / 定期タスク:毎時5分"
+        )
     except ImportError:
         deps.logger.warning("apscheduler 未インストール。自動同期は無効です。")
 
@@ -301,6 +320,7 @@ def service_worker():
 # ── ルーター登録 ──────────────────────────────────────────────────────────────
 
 app.include_router(tasks.router)
+app.include_router(recurring.router)
 app.include_router(checklists.router)
 app.include_router(chat.router)
 app.include_router(diary.router)

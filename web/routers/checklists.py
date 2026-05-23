@@ -22,11 +22,14 @@ class ChecklistIn(BaseModel):
     name: str
     items: list[str] = []
     due_date: Optional[datetime] = None
+    parent_id: Optional[str] = None
 
 
 class ChecklistPatch(BaseModel):
     name: Optional[str] = None
     due_date: Optional[datetime] = None
+    parent_id: Optional[str] = None
+    sort_order: Optional[int] = None
 
 
 class ChecklistItemPatch(BaseModel):
@@ -69,6 +72,8 @@ def create_checklist(body: ChecklistIn):
         name=body.name,
         items=[ChecklistItem(text=t) for t in body.items if t.strip()],
         due_date=body.due_date,
+        parent_id=body.parent_id,
+        sort_order=len(deps.app_data.checklists),
     )
     deps.app_data.checklists.append(checklist)
     save_data_bg(deps.app_data)
@@ -82,6 +87,19 @@ def patch_checklist(checklist_id: str, body: ChecklistPatch):
         cl.name = body.name
     if "due_date" in body.model_fields_set:
         cl.due_date = body.due_date
+    if "parent_id" in body.model_fields_set:
+        if body.parent_id == checklist_id:
+            raise HTTPException(400, "自身を親にできません")
+        if body.parent_id:
+            parent = deps.find_checklist(body.parent_id)
+            cur = parent
+            while cur.parent_id:
+                if cur.parent_id == checklist_id:
+                    raise HTTPException(400, "循環参照になります")
+                cur = deps.find_checklist(cur.parent_id)
+        cl.parent_id = body.parent_id
+    if body.sort_order is not None:
+        cl.sort_order = body.sort_order
     save_data_bg(deps.app_data)
     return cl.model_dump()
 

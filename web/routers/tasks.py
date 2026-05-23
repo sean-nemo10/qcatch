@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
@@ -28,6 +28,7 @@ class TaskIn(BaseModel):
     due_date: Optional[datetime] = None
     importance: Optional[Importance] = None
     status: Optional[str] = None  # longterm / inbox (default)
+    auto_classify: bool = False
 
 
 class TaskPatch(BaseModel):
@@ -87,8 +88,10 @@ def get_tasks(status: Optional[str] = None):
 
 
 @router.post("/api/tasks", status_code=201)
-def add_task(body: TaskIn):
-    status = body.status if body.status in ("inbox", "longterm") else "inbox"
+def add_task(body: TaskIn, background_tasks: BackgroundTasks):
+    status = (
+        body.status if body.status in ("inbox", "longterm", "wishlist") else "inbox"
+    )
     task = Task(
         text=body.text,
         category=body.category,
@@ -98,6 +101,8 @@ def add_task(body: TaskIn):
     )
     deps.app_data.tasks.append(task)
     save_data_bg(deps.app_data)
+    if body.auto_classify and status == "inbox":
+        background_tasks.add_task(_do_sort)
     return task.model_dump()
 
 
@@ -105,12 +110,19 @@ def add_task(body: TaskIn):
 def update_task(task_id: str, body: TaskPatch):
     task = deps.find_task(task_id)
     if body.status:
-        if body.status not in ("inbox", "todo", "done", "trashed", "longterm"):
+        if body.status not in (
+            "inbox",
+            "todo",
+            "done",
+            "trashed",
+            "longterm",
+            "wishlist",
+        ):
             raise HTTPException(400, "invalid status")
         task.status = body.status
         if body.status == "done":
             task.completed_at = datetime.now()
-        elif body.status in ("inbox", "todo", "trashed", "longterm"):
+        else:
             task.completed_at = None
     if "category" in body.model_fields_set:
         task.category = body.category
@@ -124,6 +136,29 @@ def update_task(task_id: str, body: TaskPatch):
         task.importance = body.importance
     save_data_bg(deps.app_data)
     return task.model_dump()
+
+
+@router.post("/api/tasks/promote-wishlist")
+def promote_wishlist(
+    category: Optional[Category] = None, only_tagged: Optional[str] = None
+):
+    """Promote wishlist tasks to todo. If only_tagged is set, promote only items
+    with that tag (and remove the tag). Otherwise promote all matching."""
+    promoted = 0
+    for t in deps.app_data.tasks:
+        if t.status != "wishlist":
+            continue
+        if category is not None and t.category != category:
+            continue
+        if only_tagged is not None and only_tagged not in t.tags:
+            continue
+        t.status = "todo"
+        if only_tagged is not None and only_tagged in t.tags:
+            t.tags = [tg for tg in t.tags if tg != only_tagged]
+        promoted += 1
+    if promoted:
+        save_data_bg(deps.app_data)
+    return {"promoted": promoted}
 
 
 @router.post("/api/tasks/bulk-complete")
@@ -197,13 +232,13 @@ def delete_task(task_id: str):
 # ── /api/sort ─────────────────────────────────────────────────────────────────
 
 
-@router.post("/api/sort")
-def sort_tasks():
+def _do_sort() -> int:
+    """inbox タスクを AI 分類する。background_tasks からも呼べる共通ロジック。"""
     from core import ai
 
     inbox_tasks = [t for t in deps.app_data.tasks if t.status == "inbox"]
     if not inbox_tasks:
-        return {"sorted": 0, "message": "inbox にタスクがありません"}
+        return 0
 
     cfg = deps.load_config()
     backend = cfg.get("sort_backend", "auto")
@@ -222,20 +257,18 @@ def sort_tasks():
             )
         elif backend == "gemini" or (backend == "auto" and gemini_key):
             if not gemini_key:
-                raise HTTPException(400, "GEMINI_API_KEY が設定されていません")
+                return 0
             sorted_tasks = ai.sort_with_gemini(copy.deepcopy(inbox_tasks), gemini_key)
         elif backend == "anthropic" or (backend == "auto" and anthropic_key):
             if not anthropic_key:
-                raise HTTPException(400, "ANTHROPIC_API_KEY が設定されていません")
+                return 0
             sorted_tasks = ai.sort_with_anthropic(
                 copy.deepcopy(inbox_tasks), anthropic_key
             )
         else:
-            raise HTTPException(400, "利用可能な AI バックエンドがありません")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, str(e))
+            return 0
+    except Exception:
+        return 0
 
     id_to_sorted = {t.id: t for t in sorted_tasks}
     for task in deps.app_data.tasks:
@@ -248,7 +281,19 @@ def sort_tasks():
 
     ai.update_few_shot(deps.app_data)
     save_data_bg(deps.app_data)
-    return {"sorted": len(sorted_tasks)}
+    return len(sorted_tasks)
+
+
+@router.post("/api/sort")
+def sort_tasks():
+    inbox_tasks = [t for t in deps.app_data.tasks if t.status == "inbox"]
+    if not inbox_tasks:
+        return {"sorted": 0, "message": "inbox にタスクがありません"}
+    try:
+        n = _do_sort()
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    return {"sorted": n}
 
 
 # ── /api/suggest-tags / apply-tags ───────────────────────────────────────────

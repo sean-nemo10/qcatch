@@ -4,47 +4,164 @@ import { state } from './state.js';
 
 let _dueClId = null;
 let _dueTaskId = null;
+let _allChecklists = [];  // 親セレクタ等で使うキャッシュ
+const _collapsed = new Set(JSON.parse(localStorage.getItem('cl_collapsed') || '[]'));
+
+function _persistCollapsed() {
+  localStorage.setItem('cl_collapsed', JSON.stringify([..._collapsed]));
+}
+
+function _toggleCollapse(clId) {
+  if (_collapsed.has(clId)) _collapsed.delete(clId);
+  else _collapsed.add(clId);
+  _persistCollapsed();
+  loadChecklists();
+}
+window._toggleCollapse = _toggleCollapse;
+
+function _buildTree(checklists) {
+  const byParent = new Map();
+  for (const cl of checklists) {
+    const key = cl.parent_id || '__root__';
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(cl);
+  }
+  for (const arr of byParent.values()) {
+    arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, 'ja'));
+  }
+  return byParent;
+}
+
+function _aggregateProgress(cl, byParent) {
+  let done = cl.items.filter(i => i.done).length;
+  let total = cl.items.length;
+  for (const child of byParent.get(cl.id) || []) {
+    const sub = _aggregateProgress(child, byParent);
+    done += sub.done; total += sub.total;
+  }
+  return {done, total};
+}
+
+function _parentOptions(currentId, excludeId) {
+  // 循環防止: excludeIdとその子孫は除外
+  const descendants = new Set();
+  const stack = [excludeId];
+  while (stack.length) {
+    const id = stack.pop();
+    descendants.add(id);
+    for (const cl of _allChecklists) if (cl.parent_id === id) stack.push(cl.id);
+  }
+  return _allChecklists
+    .filter(cl => !descendants.has(cl.id))
+    .map(cl => `<option value="${cl.id}"${cl.id === currentId ? ' selected' : ''}>${esc(cl.name)}</option>`)
+    .join('');
+}
+
+function _renderNode(cl, byParent, depth) {
+  const children = byParent.get(cl.id) || [];
+  const hasChildren = children.length > 0;
+  const isFolder = cl.items.length === 0 && hasChildren;
+  const collapsed = _collapsed.has(cl.id);
+  const agg = _aggregateProgress(cl, byParent);
+  const dueColor = cl.due_date && isDue(cl.due_date) ? '#ff7043' : 'var(--text-dim)';
+
+  const headerToggle = hasChildren
+    ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:14px;min-width:24px" onclick="_toggleCollapse('${cl.id}')" title="${collapsed?'展開':'折りたたみ'}">${collapsed?'▶':'▼'}</button>`
+    : `<span style="width:24px;display:inline-block"></span>`;
+
+  const itemsHtml = (!isFolder && !collapsed) ? `
+    <div class="checklist-items">
+      ${cl.items.map((item, idx) => `
+        <div class="cl-item ${item.done?'done':''}">
+          <input type="checkbox" id="cli-${cl.id}-${idx}" ${item.done?'checked':''}
+            onchange="toggleClItem('${cl.id}', ${idx}, this.checked)">
+          <label for="cli-${cl.id}-${idx}" ondblclick="startClItemEdit('${cl.id}',${idx},this)" style="cursor:text">${esc(item.text)}</label>
+          <button class="btn btn-ghost btn-sm" style="opacity:.4;padding:2px 6px;font-size:11px" onclick="deleteClItem('${cl.id}',${idx})">×</button>
+        </div>`).join('')}
+    </div>
+    <div class="checklist-footer">
+      <input placeholder="アイテムを追加…" class="form-input" style="margin:0;flex:1" id="cl-add-${cl.id}"
+        onkeydown="if(event.key==='Enter')addClItem('${cl.id}')">
+      <button class="btn btn-ghost btn-sm" onclick="addClItem('${cl.id}')">追加</button>
+    </div>` : '';
+
+  const childrenHtml = (hasChildren && !collapsed)
+    ? `<div class="cl-children">${children.map(c => _renderNode(c, byParent, depth + 1)).join('')}</div>`
+    : '';
+
+  const icon = isFolder ? '📁' : (hasChildren ? '📂' : '📋');
+  const progressLabel = isFolder
+    ? `${agg.done}/${agg.total}`
+    : (hasChildren ? `${cl.items.filter(i=>i.done).length}/${cl.items.length} · 全${agg.done}/${agg.total}` : `${cl.items.filter(i=>i.done).length}/${cl.items.length}`);
+
+  return `
+    <div class="checklist-card ${isFolder?'cl-folder':''}" style="margin-left:${depth * 20}px">
+      <div class="checklist-head">
+        ${headerToggle}
+        <div style="flex:1;min-width:0">
+          <h3 ondblclick="startClNameEdit('${cl.id}',this)" style="cursor:text" title="ダブルクリックで名前を編集">${icon} ${esc(cl.name)}</h3>
+          ${cl.due_date ? `<div style="font-size:11px;color:${dueColor};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
+        </div>
+        <span class="cl-progress">${progressLabel}</span>
+        <select class="form-select" style="margin:0;font-size:11px;padding:2px 4px;max-width:120px" onchange="setClParent('${cl.id}', this.value)" title="親を変更">
+          <option value="">(ルート)</option>
+          ${_parentOptions(cl.parent_id || '', cl.id)}
+        </select>
+        ${isFolder?'':`<button class="btn btn-ghost btn-sm" onclick="editClDue('${cl.id}','${cl.due_date||''}')">期日</button>`}
+        ${isFolder?'':`<button class="btn btn-ghost btn-sm" onclick="resetChecklist('${cl.id}')">リセット</button>`}
+        <button class="btn btn-ghost btn-sm" onclick="addChildChecklist('${cl.id}')" title="子リストを追加">＋子</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteChecklist('${cl.id}')">削除</button>
+      </div>
+      ${itemsHtml}
+      ${childrenHtml}
+    </div>`;
+}
 
 // ── Checklists ────────────────────────────────────────────────────────
 export async function loadChecklists() {
   const data = await api('GET', '/api/checklists');
+  _allChecklists = data.checklists;
+  _refreshParentSelector();
   const container = document.getElementById('checklists-list');
   if (!data.checklists.length) {
     container.innerHTML = '<div class="empty">チェックリストがまだありません</div>'; return;
   }
-  container.innerHTML = data.checklists.map(cl => {
-    const done = cl.items.filter(i => i.done).length;
-    const total = cl.items.length;
-    return `
-    <div class="checklist-card">
-      <div class="checklist-head">
-        <div style="flex:1;min-width:0">
-          <h3 ondblclick="startClNameEdit('${cl.id}',this)" style="cursor:text" title="ダブルクリックで名前を編集">${esc(cl.name)}</h3>
-          ${cl.due_date ? `<div style="font-size:11px;color:${isDue(cl.due_date)?'#ff7043':'var(--text-dim)'};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
-        </div>
-        <span class="cl-progress">${done}/${total}</span>
-        <button class="btn btn-ghost btn-sm" onclick="editClDue('${cl.id}','${cl.due_date||''}')">期日</button>
-        <button class="btn btn-ghost btn-sm" onclick="resetChecklist('${cl.id}')">リセット</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteChecklist('${cl.id}')">削除</button>
-      </div>
-      <div class="checklist-items">
-        ${cl.items.map((item, idx) => `
-          <div class="cl-item ${item.done?'done':''}">
-            <input type="checkbox" id="cli-${cl.id}-${idx}" ${item.done?'checked':''}
-              onchange="toggleClItem('${cl.id}', ${idx}, this.checked)">
-            <label for="cli-${cl.id}-${idx}" ondblclick="startClItemEdit('${cl.id}',${idx},this)" style="cursor:text">${esc(item.text)}</label>
-            <button class="btn btn-ghost btn-sm" style="opacity:.4;padding:2px 6px;font-size:11px" onclick="deleteClItem('${cl.id}',${idx})">×</button>
-          </div>`).join('')}
-      </div>
-      <div class="checklist-footer">
-        <input placeholder="アイテムを追加…" class="form-input" style="margin:0;flex:1" id="cl-add-${cl.id}"
-          onkeydown="if(event.key==='Enter')addClItem('${cl.id}')">
-        <button class="btn btn-ghost btn-sm" onclick="addClItem('${cl.id}')">追加</button>
-      </div>
-    </div>`;
-  }).join('');
+  const byParent = _buildTree(data.checklists);
+  const roots = byParent.get('__root__') || [];
+  // 親IDが存在しないorphanもルートに混ぜる
+  const knownIds = new Set(data.checklists.map(c => c.id));
+  const orphans = data.checklists.filter(c => c.parent_id && !knownIds.has(c.parent_id));
+  const allRoots = [...roots, ...orphans];
+  container.innerHTML = allRoots.map(cl => _renderNode(cl, byParent, 0)).join('');
 }
 window.loadChecklists = loadChecklists;
+
+function _refreshParentSelector() {
+  const sel = document.getElementById('cl-parent');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">(ルート)</option>' +
+    _allChecklists.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  sel.value = cur;
+}
+
+export async function setClParent(clId, parentId) {
+  try {
+    await api('PATCH', `/api/checklists/${clId}`, {parent_id: parentId || null});
+    loadChecklists();
+  } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); loadChecklists(); }
+}
+window.setClParent = setClParent;
+
+export async function addChildChecklist(parentId) {
+  const name = prompt('子リストの名前:');
+  if (!name || !name.trim()) return;
+  try {
+    await api('POST', '/api/checklists', {name: name.trim(), items: [], parent_id: parentId});
+    loadChecklists();
+  } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
+}
+window.addChildChecklist = addChildChecklist;
 
 export function addClItemInput() {
   const c = document.getElementById('cl-items-inputs');
@@ -61,13 +178,14 @@ export async function createChecklist() {
   if (!name) { window.showStatus('チェックリスト名を入力してください', 'error', 2000); return; }
   const items = [...document.querySelectorAll('.cl-item-input')]
     .map(i => i.value.trim()).filter(Boolean);
-  if (items.length < 2) { window.showStatus('アイテムを2つ以上入力してください', 'error', 2000); return; }
   const due_date = buildDueDate('cl-due-date', 'cl-due-time');
+  const parent_id = document.getElementById('cl-parent')?.value || null;
   try {
-    await api('POST', '/api/checklists', {name, items, due_date});
+    await api('POST', '/api/checklists', {name, items, due_date, parent_id});
     document.getElementById('cl-name').value = '';
     document.getElementById('cl-due-date').value = '';
     document.getElementById('cl-due-time').value = '';
+    const ps = document.getElementById('cl-parent'); if (ps) ps.value = '';
     document.getElementById('cl-items-inputs').innerHTML = '<div class="form-row"><input name="cl-item" aria-label="チェックリストアイテム" placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div><div class="form-row"><input name="cl-item" aria-label="チェックリストアイテム" placeholder="アイテム 2" class="cl-item-input" style="flex:1"></div>';
     window.showStatus('チェックリストを作成しました', 'success');
     loadChecklists();

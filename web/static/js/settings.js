@@ -11,6 +11,7 @@ const OPTIONAL_TABS = [
   { id: 'longterm',  label: '長期タスク',     navType: 'grid' },
   { id: 'checklists',label: 'チェックリスト', navType: 'grid' },
   { id: 'recurring', label: '定期タスク',     navType: 'grid' },
+  { id: 'shopping',  label: '買い物リスト',   navType: 'grid' },
 ];
 
 function getHiddenTabs() {
@@ -269,6 +270,19 @@ export async function saveTasklistMap() {
   }
 }
 window.saveTasklistMap = saveTasklistMap;
+
+export async function clearCacheAndReload() {
+  if ('caches' in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+  }
+  if ('serviceWorker' in navigator) {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) await reg.unregister();
+  }
+  location.reload(true);
+}
+window.clearCacheAndReload = clearCacheAndReload;
 
 export async function saveSyncInterval() {
   const val = parseInt(document.getElementById('sync-interval').value);
