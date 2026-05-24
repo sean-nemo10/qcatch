@@ -5,20 +5,72 @@ import { state } from './state.js';
 let _dueClId = null;
 let _dueTaskId = null;
 let _allChecklists = [];  // 親セレクタ等で使うキャッシュ
-// 展開済みID集合（デフォルト=全て閉じている）。旧 cl_collapsed からは移行せず空集合で始める。
+// 展開済みID集合（デフォルト=全て閉じている）。
 const _expanded = new Set(JSON.parse(localStorage.getItem('cl_expanded') || '[]'));
+// 固定（ダッシュボードに展開表示）するチェックリストID集合
+const _pinned = new Set(JSON.parse(localStorage.getItem('cl_pinned') || '[]'));
 
 function _persistExpanded() {
   localStorage.setItem('cl_expanded', JSON.stringify([..._expanded]));
 }
 
+function _persistPinned() {
+  localStorage.setItem('cl_pinned', JSON.stringify([..._pinned]));
+}
+
+function _ancestorChain(clId) {
+  const chain = [];
+  let cur = _allChecklists.find(c => c.id === clId);
+  while (cur && cur.parent_id) {
+    chain.push(cur.parent_id);
+    cur = _allChecklists.find(c => c.id === cur.parent_id);
+  }
+  return chain;
+}
+
 function _toggleExpand(clId) {
-  if (_expanded.has(clId)) _expanded.delete(clId);
-  else _expanded.add(clId);
+  if (_expanded.has(clId)) {
+    _expanded.delete(clId);
+  } else {
+    // アコーディオン: 開くときは祖先チェーン+自分以外を全て閉じる
+    const keep = new Set([clId, ..._ancestorChain(clId)]);
+    for (const id of [..._expanded]) if (!keep.has(id)) _expanded.delete(id);
+    _expanded.add(clId);
+  }
   _persistExpanded();
   loadChecklists();
 }
 window._toggleExpand = _toggleExpand;
+
+window.togglePinChecklist = function(clId) {
+  if (_pinned.has(clId)) _pinned.delete(clId);
+  else _pinned.add(clId);
+  _persistPinned();
+  loadChecklists();
+  if (window.loadDashboard) window.loadDashboard();
+};
+
+window.getPinnedChecklistIds = () => [..._pinned];
+
+window.expandChecklistAndScroll = function(clId) {
+  // 祖先チェーン+自分を展開、他は閉じる
+  const keep = new Set([clId, ..._ancestorChain(clId)]);
+  for (const id of [..._expanded]) if (!keep.has(id)) _expanded.delete(id);
+  for (const id of keep) _expanded.add(id);
+  _persistExpanded();
+  window.switchTabByName('checklists');
+  loadChecklists().then(() => {
+    setTimeout(() => {
+      const el = document.getElementById('cl-card-' + clId);
+      if (el) {
+        el.scrollIntoView({behavior: 'smooth', block: 'center'});
+        el.style.transition = 'background 0.6s';
+        el.style.background = '#2a3a1f';
+        setTimeout(() => el.style.background = '', 1200);
+      }
+    }, 100);
+  });
+};
 
 window.toggleClForm = function() {
   const body = document.getElementById('cl-form-body');
@@ -134,6 +186,7 @@ function _renderNode(cl, byParent, byId, depth) {
     : '';
 
   const icon = isFolder ? '📁' : (hasChildren ? '📂' : '📋');
+  const childBadge = hasChildren ? `<span style="font-size:11px;color:var(--text-dim);margin-left:6px">▸${children.length}</span>` : '';
   const ownDone = cl.items.filter(i=>i.done).length;
   const inhDone = inherited.filter(i=>i.item.done).length;
   const visibleDone = ownDone + inhDone;
@@ -141,16 +194,19 @@ function _renderNode(cl, byParent, byId, depth) {
   const progressLabel = isFolder
     ? `${agg.done}/${agg.total}`
     : (hasChildren ? `${visibleDone}/${visibleTotal} · 全${agg.done}/${agg.total}` : `${visibleDone}/${visibleTotal}`);
+  const pinned = _pinned.has(cl.id);
+  const pinBtn = `<button class="btn btn-ghost btn-sm" onclick="togglePinChecklist('${cl.id}')" title="${pinned?'ダッシュボード固定を解除':'ダッシュボードに固定'}" style="color:${pinned?'#ffb300':'var(--text-dim)'}">${pinned?'📌':'📍'}</button>`;
 
   return `
-    <div class="checklist-card ${isFolder?'cl-folder':''}" style="margin-left:${depth * 20}px">
+    <div id="cl-card-${cl.id}" class="checklist-card ${isFolder?'cl-folder':''}" style="margin-left:${depth * 20}px">
       <div class="checklist-head">
         ${headerToggle}
         <div style="flex:1;min-width:0">
-          <h3 ondblclick="startClNameEdit('${cl.id}',this)" style="cursor:text" title="ダブルクリックで名前を編集">${icon} ${esc(cl.name)}</h3>
+          <h3 ondblclick="startClNameEdit('${cl.id}',this)" style="cursor:text" title="ダブルクリックで名前を編集">${icon} ${esc(cl.name)}${childBadge}</h3>
           ${cl.due_date ? `<div style="font-size:11px;color:${dueColor};margin-top:2px">📅 ${fmtDatetime(cl.due_date)}</div>` : ''}
         </div>
         <span class="cl-progress">${progressLabel}</span>
+        ${pinBtn}
         <select class="form-select" style="margin:0;font-size:11px;padding:2px 4px;max-width:120px" onchange="setClParent('${cl.id}', this.value)" title="親を変更">
           <option value="">(ルート)</option>
           ${_parentOptions(cl.parent_id || '', cl.id)}
@@ -160,8 +216,8 @@ function _renderNode(cl, byParent, byId, depth) {
         <button class="btn btn-ghost btn-sm" onclick="addChildChecklist('${cl.id}')" title="子リストを追加">＋子</button>
         <button class="btn btn-danger btn-sm" onclick="deleteChecklist('${cl.id}')">削除</button>
       </div>
-      ${itemsHtml}
       ${childrenHtml}
+      ${itemsHtml}
     </div>`;
 }
 

@@ -31,7 +31,19 @@ export async function loadDashboard() {
       </div>`;
     }
 
-    const activeCls = clData.checklists.filter(cl => cl.items.some(i => !i.done));
+    // ── 固定チェックリスト（フル表示） ──
+    const pinnedIds = new Set((window.getPinnedChecklistIds ? window.getPinnedChecklistIds() : []));
+    const pinnedCls = clData.checklists.filter(cl => pinnedIds.has(cl.id));
+    if (pinnedCls.length) {
+      const byId = new Map(clData.checklists.map(c => [c.id, c]));
+      let html = `<div class="dash-section">
+        <div class="dash-section-title"><h2>📌 固定チェックリスト</h2><span class="count">${pinnedCls.length}</span></div>`;
+      pinnedCls.forEach(cl => html += renderPinnedChecklist(cl, byId));
+      html += '</div>';
+      container.innerHTML += html;
+    }
+
+    const activeCls = clData.checklists.filter(cl => cl.items.some(i => !i.done) && !pinnedIds.has(cl.id));
     const clWithDue  = activeCls.filter(cl => cl.due_date).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
     const clNoDue    = activeCls.filter(cl => !cl.due_date);
     const _orderMap = {};
@@ -132,10 +144,48 @@ export function renderClDashItem(cl) {
     </div>
     <div class="dash-item-actions">
       <button class="btn btn-success btn-sm" onclick="checklistToTasks('${cl.id}')" title="未完了アイテムをタスクとして追加">今日やる</button>
-      <button class="btn btn-ghost btn-sm" onclick="switchTabByName('checklists')">開く</button>
+      <button class="btn btn-ghost btn-sm" onclick="expandChecklistAndScroll('${cl.id}')">開く</button>
     </div>
   </div>`;
 }
+
+export function renderPinnedChecklist(cl, byId) {
+  // 自分の items + 祖先からの継承
+  const ownTexts = new Set(cl.items.map(i => i.text));
+  const inherited = [];
+  let cur = cl;
+  while (cur.parent_id) {
+    const p = byId.get(cur.parent_id);
+    if (!p) break;
+    p.items.forEach((item, idx) => {
+      if (!ownTexts.has(item.text)) inherited.push({srcClId: p.id, srcIdx: idx, srcName: p.name, item});
+    });
+    cur = p;
+  }
+  const allItems = inherited.length + cl.items.length;
+  const allDone = inherited.filter(i=>i.item.done).length + cl.items.filter(i=>i.done).length;
+  const inhRows = inherited.map(info => `
+    <div class="cl-item ${info.item.done?'done':''}" style="opacity:.75">
+      <input type="checkbox" ${info.item.done?'checked':''} onchange="toggleClItem('${info.srcClId}', ${info.srcIdx}, this.checked); loadDashboard()">
+      <label style="cursor:default;font-style:italic" title="継承元: ${esc(info.srcName)}">↳ ${esc(info.item.text)}</label>
+    </div>`).join('');
+  const ownRows = cl.items.map((item, idx) => `
+    <div class="cl-item ${item.done?'done':''}">
+      <input type="checkbox" ${item.done?'checked':''} onchange="toggleClItem('${cl.id}', ${idx}, this.checked); loadDashboard()">
+      <label style="cursor:text">${esc(item.text)}</label>
+    </div>`).join('');
+  return `<div class="checklist-card" style="margin-bottom:8px">
+    <div class="checklist-head">
+      <div style="flex:1;min-width:0"><h3>📌 ${esc(cl.name)}</h3></div>
+      <span class="cl-progress">${allDone}/${allItems}</span>
+      <button class="btn btn-ghost btn-sm" onclick="togglePinChecklist('${cl.id}')" title="固定を解除" style="color:#ffb300">📌</button>
+      <button class="btn btn-ghost btn-sm" onclick="resetChecklist('${cl.id}').then(()=>loadDashboard())">リセット</button>
+      <button class="btn btn-ghost btn-sm" onclick="expandChecklistAndScroll('${cl.id}')">編集</button>
+    </div>
+    <div class="checklist-items">${inhRows}${ownRows}</div>
+  </div>`;
+}
+window.renderPinnedChecklist = renderPinnedChecklist;
 
 export async function checklistToTasks(clId) {
   try {
