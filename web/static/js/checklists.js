@@ -20,6 +20,15 @@ function _toggleExpand(clId) {
 }
 window._toggleExpand = _toggleExpand;
 
+window.toggleClForm = function() {
+  const body = document.getElementById('cl-form-body');
+  const btn = document.getElementById('cl-form-toggle');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '▼ 閉じる' : '▶ 開く';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+
 function _buildTree(checklists) {
   const byParent = new Map();
   for (const cl of checklists) {

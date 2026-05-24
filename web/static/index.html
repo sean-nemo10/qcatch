@@ -554,27 +554,32 @@ body{font-family:"Meiryo","Segoe UI",sans-serif;background:var(--bg);color:var(-
 <!-- ── チェックリスト ── -->
 <div id="pane-checklists" class="pane content">
   <div class="form-card">
-    <h3>新しいチェックリスト</h3>
-    <input id="cl-name" aria-label="チェックリスト名" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
-    <div class="form-row" style="align-items:center;margin-bottom:10px">
-      <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">親（任意）</label>
-      <select id="cl-parent" aria-label="親リスト" class="form-select" style="margin:0;flex:1">
-        <option value="">(ルート)</option>
-      </select>
+    <div class="form-row" style="align-items:center;margin:0">
+      <h3 style="margin:0;flex:1">新しいチェックリスト</h3>
+      <button id="cl-form-toggle" class="btn btn-ghost btn-sm" onclick="toggleClForm()" aria-expanded="false">▶ 開く</button>
     </div>
-    <div class="form-row" style="align-items:center;margin-bottom:10px">
-      <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">期日（任意）</label>
-      <input id="cl-due-date" aria-label="期日" type="date" class="form-input" style="margin:0;flex:1">
-      <input id="cl-due-time" aria-label="時刻（任意）" type="time" step="300" class="form-input" style="margin:0;width:110px" placeholder="時刻（任意）">
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cl-due-date').value='';document.getElementById('cl-due-time').value=''">クリア</button>
-    </div>
-    <div id="cl-items-inputs">
-      <div class="form-row"><input name="cl-item" aria-label="チェックリストアイテム" placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>
-      <div class="form-row"><input name="cl-item" aria-label="チェックリストアイテム" placeholder="アイテム 2" class="cl-item-input" style="flex:1"></div>
-    </div>
-    <div class="form-row" style="margin-top:6px">
-      <button class="btn btn-ghost btn-sm" onclick="addClItemInput()">＋ アイテム追加</button>
-      <button class="btn btn-primary" onclick="createChecklist()">作成</button>
+    <div id="cl-form-body" style="display:none;margin-top:10px">
+      <input id="cl-name" aria-label="チェックリスト名" class="form-input" placeholder="チェックリスト名（例：サッカーの日の持ち物）">
+      <div class="form-row" style="align-items:center;margin-bottom:10px">
+        <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">親（任意）</label>
+        <select id="cl-parent" aria-label="親リスト" class="form-select" style="margin:0;flex:1">
+          <option value="">(ルート)</option>
+        </select>
+      </div>
+      <div class="form-row" style="align-items:center;margin-bottom:10px">
+        <label style="font-size:12px;color:var(--text-dim);white-space:nowrap;margin-right:6px">期日（任意）</label>
+        <input id="cl-due-date" aria-label="期日" type="date" class="form-input" style="margin:0;flex:1">
+        <input id="cl-due-time" aria-label="時刻（任意）" type="time" step="300" class="form-input" style="margin:0;width:110px" placeholder="時刻（任意）">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cl-due-date').value='';document.getElementById('cl-due-time').value=''">クリア</button>
+      </div>
+      <div id="cl-items-inputs">
+        <div class="form-row"><input name="cl-item" aria-label="チェックリストアイテム" placeholder="アイテム 1" class="cl-item-input" style="flex:1"></div>
+        <div class="form-row"><input name="cl-item" aria-label="チェックリストアイテム" placeholder="アイテム 2" class="cl-item-input" style="flex:1"></div>
+      </div>
+      <div class="form-row" style="margin-top:6px">
+        <button class="btn btn-ghost btn-sm" onclick="addClItemInput()">＋ アイテム追加</button>
+        <button class="btn btn-primary" onclick="createChecklist()">作成</button>
+      </div>
     </div>
   </div>
   <div id="checklists-list"></div>

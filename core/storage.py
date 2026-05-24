@@ -64,7 +64,9 @@ CREATE TABLE IF NOT EXISTS checklists (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     due_date TEXT,
-    items TEXT NOT NULL DEFAULT '[]'
+    items TEXT NOT NULL DEFAULT '[]',
+    parent_id TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS recurring_rules (
@@ -134,6 +136,16 @@ def init_db() -> None:
     conn = _get_conn()
     with conn:
         conn.executescript(_SCHEMA)
+        # 既存DBへの追加カラム（idempotent）
+        cols = {
+            r["name"] for r in conn.execute("PRAGMA table_info(checklists)").fetchall()
+        }
+        if "parent_id" not in cols:
+            conn.execute("ALTER TABLE checklists ADD COLUMN parent_id TEXT")
+        if "sort_order" not in cols:
+            conn.execute(
+                "ALTER TABLE checklists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            )
     conn.close()
 
 
@@ -180,16 +192,21 @@ def _checklist_to_row(c: ChecklistTemplate) -> tuple:
         c.name,
         c.due_date.isoformat() if c.due_date else None,
         json.dumps([item.model_dump() for item in c.items]),
+        c.parent_id,
+        c.sort_order,
     )
 
 
 def _row_to_checklist(r: sqlite3.Row) -> ChecklistTemplate:
     raw_items = json.loads(r["items"])
+    keys = r.keys()
     return ChecklistTemplate(
         id=r["id"],
         name=r["name"],
         due_date=datetime.fromisoformat(r["due_date"]) if r["due_date"] else None,
         items=[ChecklistItem(**item) for item in raw_items],
+        parent_id=r["parent_id"] if "parent_id" in keys else None,
+        sort_order=r["sort_order"] if "sort_order" in keys else 0,
     )
 
 
@@ -267,7 +284,7 @@ def save_data(data: AppData) -> None:
             )
             conn.execute("DELETE FROM checklists")
             conn.executemany(
-                "INSERT INTO checklists VALUES (?,?,?,?)",
+                "INSERT INTO checklists VALUES (?,?,?,?,?,?)",
                 [_checklist_to_row(c) for c in data.checklists],
             )
             conn.execute("DELETE FROM recurring_rules")
