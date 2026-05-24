@@ -5,19 +5,20 @@ import { state } from './state.js';
 let _dueClId = null;
 let _dueTaskId = null;
 let _allChecklists = [];  // 親セレクタ等で使うキャッシュ
-const _collapsed = new Set(JSON.parse(localStorage.getItem('cl_collapsed') || '[]'));
+// 展開済みID集合（デフォルト=全て閉じている）。旧 cl_collapsed からは移行せず空集合で始める。
+const _expanded = new Set(JSON.parse(localStorage.getItem('cl_expanded') || '[]'));
 
-function _persistCollapsed() {
-  localStorage.setItem('cl_collapsed', JSON.stringify([..._collapsed]));
+function _persistExpanded() {
+  localStorage.setItem('cl_expanded', JSON.stringify([..._expanded]));
 }
 
-function _toggleCollapse(clId) {
-  if (_collapsed.has(clId)) _collapsed.delete(clId);
-  else _collapsed.add(clId);
-  _persistCollapsed();
+function _toggleExpand(clId) {
+  if (_expanded.has(clId)) _expanded.delete(clId);
+  else _expanded.add(clId);
+  _persistExpanded();
   loadChecklists();
 }
-window._toggleCollapse = _toggleCollapse;
+window._toggleExpand = _toggleExpand;
 
 function _buildTree(checklists) {
   const byParent = new Map();
@@ -57,27 +58,61 @@ function _parentOptions(currentId, excludeId) {
     .join('');
 }
 
-function _renderNode(cl, byParent, depth) {
+function _collectInherited(cl, byId) {
+  // 祖先のアイテムを root → 直接親 の順で集める。子に同テキストの own item があれば override として除外。
+  const ownTexts = new Set(cl.items.map(i => i.text));
+  const chain = [];
+  let cur = cl;
+  while (cur.parent_id) {
+    const p = byId.get(cur.parent_id);
+    if (!p) break;
+    chain.unshift(p);
+    cur = p;
+  }
+  const inherited = [];
+  for (const anc of chain) {
+    anc.items.forEach((item, idx) => {
+      if (ownTexts.has(item.text)) return;  // override
+      inherited.push({srcClId: anc.id, srcIdx: idx, srcName: anc.name, item});
+    });
+  }
+  return inherited;
+}
+
+function _renderNode(cl, byParent, byId, depth) {
   const children = byParent.get(cl.id) || [];
   const hasChildren = children.length > 0;
-  const isFolder = cl.items.length === 0 && hasChildren;
-  const collapsed = _collapsed.has(cl.id);
+  const inherited = _collectInherited(cl, byId);
+  const hasInherited = inherited.length > 0;
+  const isFolder = cl.items.length === 0 && hasChildren && !hasInherited;
+  const expanded = _expanded.has(cl.id);
+  const hasToggle = hasChildren || cl.items.length > 0 || hasInherited;
   const agg = _aggregateProgress(cl, byParent);
   const dueColor = cl.due_date && isDue(cl.due_date) ? '#ff7043' : 'var(--text-dim)';
 
-  const headerToggle = hasChildren
-    ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:14px;min-width:24px" onclick="_toggleCollapse('${cl.id}')" title="${collapsed?'展開':'折りたたみ'}">${collapsed?'▶':'▼'}</button>`
+  const headerToggle = hasToggle
+    ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:14px;min-width:24px" onclick="_toggleExpand('${cl.id}')" title="${expanded?'折りたたみ':'展開'}">${expanded?'▼':'▶'}</button>`
     : `<span style="width:24px;display:inline-block"></span>`;
 
-  const itemsHtml = (!isFolder && !collapsed) ? `
-    <div class="checklist-items">
-      ${cl.items.map((item, idx) => `
+  const inheritedHtml = (expanded && hasInherited) ? inherited.map(info => `
+        <div class="cl-item cl-inherited ${info.item.done?'done':''}" style="opacity:.75">
+          <input type="checkbox" ${info.item.done?'checked':''}
+            onchange="toggleClItem('${info.srcClId}', ${info.srcIdx}, this.checked)">
+          <label style="cursor:default;font-style:italic" title="継承元: ${esc(info.srcName)}（同名で自分のアイテムを追加すると上書きできます）">↳ ${esc(info.item.text)}</label>
+        </div>`).join('') : '';
+
+  const ownItemsHtml = (expanded && !isFolder) ? cl.items.map((item, idx) => `
         <div class="cl-item ${item.done?'done':''}">
           <input type="checkbox" id="cli-${cl.id}-${idx}" ${item.done?'checked':''}
             onchange="toggleClItem('${cl.id}', ${idx}, this.checked)">
           <label for="cli-${cl.id}-${idx}" ondblclick="startClItemEdit('${cl.id}',${idx},this)" style="cursor:text">${esc(item.text)}</label>
           <button class="btn btn-ghost btn-sm" style="opacity:.4;padding:2px 6px;font-size:11px" onclick="deleteClItem('${cl.id}',${idx})">×</button>
-        </div>`).join('')}
+        </div>`).join('') : '';
+
+  const itemsHtml = (expanded && !isFolder) ? `
+    <div class="checklist-items">
+      ${inheritedHtml}
+      ${ownItemsHtml}
     </div>
     <div class="checklist-footer">
       <input placeholder="アイテムを追加…" class="form-input" style="margin:0;flex:1" id="cl-add-${cl.id}"
@@ -85,14 +120,18 @@ function _renderNode(cl, byParent, depth) {
       <button class="btn btn-ghost btn-sm" onclick="addClItem('${cl.id}')">追加</button>
     </div>` : '';
 
-  const childrenHtml = (hasChildren && !collapsed)
-    ? `<div class="cl-children">${children.map(c => _renderNode(c, byParent, depth + 1)).join('')}</div>`
+  const childrenHtml = (hasChildren && expanded)
+    ? `<div class="cl-children">${children.map(c => _renderNode(c, byParent, byId, depth + 1)).join('')}</div>`
     : '';
 
   const icon = isFolder ? '📁' : (hasChildren ? '📂' : '📋');
+  const ownDone = cl.items.filter(i=>i.done).length;
+  const inhDone = inherited.filter(i=>i.item.done).length;
+  const visibleDone = ownDone + inhDone;
+  const visibleTotal = cl.items.length + inherited.length;
   const progressLabel = isFolder
     ? `${agg.done}/${agg.total}`
-    : (hasChildren ? `${cl.items.filter(i=>i.done).length}/${cl.items.length} · 全${agg.done}/${agg.total}` : `${cl.items.filter(i=>i.done).length}/${cl.items.length}`);
+    : (hasChildren ? `${visibleDone}/${visibleTotal} · 全${agg.done}/${agg.total}` : `${visibleDone}/${visibleTotal}`);
 
   return `
     <div class="checklist-card ${isFolder?'cl-folder':''}" style="margin-left:${depth * 20}px">
@@ -127,12 +166,13 @@ export async function loadChecklists() {
     container.innerHTML = '<div class="empty">チェックリストがまだありません</div>'; return;
   }
   const byParent = _buildTree(data.checklists);
+  const byId = new Map(data.checklists.map(c => [c.id, c]));
   const roots = byParent.get('__root__') || [];
   // 親IDが存在しないorphanもルートに混ぜる
   const knownIds = new Set(data.checklists.map(c => c.id));
   const orphans = data.checklists.filter(c => c.parent_id && !knownIds.has(c.parent_id));
   const allRoots = [...roots, ...orphans];
-  container.innerHTML = allRoots.map(cl => _renderNode(cl, byParent, 0)).join('');
+  container.innerHTML = allRoots.map(cl => _renderNode(cl, byParent, byId, 0)).join('');
 }
 window.loadChecklists = loadChecklists;
 

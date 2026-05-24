@@ -131,10 +131,38 @@ export function renderClDashItem(cl) {
       <div class="dash-item-meta">${done}/${total} 完了 — 残り: ${remaining.slice(0,3).map(i=>esc(i.text)).join('、')}${remaining.length>3?'…':''}</div>
     </div>
     <div class="dash-item-actions">
+      <button class="btn btn-success btn-sm" onclick="checklistToTasks('${cl.id}')" title="未完了アイテムをタスクとして追加">今日やる</button>
       <button class="btn btn-ghost btn-sm" onclick="switchTabByName('checklists')">開く</button>
     </div>
   </div>`;
 }
+
+export async function checklistToTasks(clId) {
+  try {
+    const data = await api('GET', '/api/checklists');
+    const byId = new Map(data.checklists.map(c => [c.id, c]));
+    const cl = byId.get(clId);
+    if (!cl) { window.showStatus('チェックリストが見つかりません', 'error'); return; }
+    // 自分の未完了 + 継承（祖先）未完了 を集める
+    const seen = new Set();
+    const texts = [];
+    cl.items.forEach(i => { if (!i.done && !seen.has(i.text)) { texts.push(i.text); seen.add(i.text); } });
+    let cur = cl;
+    while (cur.parent_id) {
+      const p = byId.get(cur.parent_id);
+      if (!p) break;
+      p.items.forEach(i => { if (!i.done && !seen.has(i.text)) { texts.push(i.text); seen.add(i.text); } });
+      cur = p;
+    }
+    if (!texts.length) { window.showStatus('未完了アイテムがありません', 'info', 2000); return; }
+    for (const text of texts) {
+      await api('POST', '/api/tasks', {text: `${cl.name}: ${text}`, auto_classify: true});
+    }
+    window.showStatus(`${texts.length}件のタスクを追加しました`, 'success');
+    loadDashboard();
+  } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
+}
+window.checklistToTasks = checklistToTasks;
 
 export function renderTaskDashItem(t, checklists) {
   const catClass = CAT_COLORS[t.category] || 'cat-その他';
