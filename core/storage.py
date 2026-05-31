@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     due_date TEXT,
     importance TEXT NOT NULL DEFAULT 'medium',
     google_event_id TEXT,
-    google_task_id TEXT
+    google_task_id TEXT,
+    due_end TEXT
 );
 
 CREATE TABLE IF NOT EXISTS checklists (
@@ -146,6 +147,11 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE checklists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
             )
+        task_cols = {
+            r["name"] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()
+        }
+        if "due_end" not in task_cols:
+            conn.execute("ALTER TABLE tasks ADD COLUMN due_end TEXT")
     conn.close()
 
 
@@ -165,6 +171,7 @@ def _task_to_row(t: Task) -> tuple:
         t.importance,
         t.google_event_id,
         t.google_task_id,
+        t.due_end.isoformat() if t.due_end else None,
     )
 
 
@@ -180,6 +187,11 @@ def _row_to_task(r: sqlite3.Row) -> Task:
             datetime.fromisoformat(r["completed_at"]) if r["completed_at"] else None
         ),
         due_date=datetime.fromisoformat(r["due_date"]) if r["due_date"] else None,
+        due_end=(
+            datetime.fromisoformat(r["due_end"])
+            if "due_end" in r.keys() and r["due_end"]
+            else None
+        ),
         importance=r["importance"],
         google_event_id=r["google_event_id"],
         google_task_id=r["google_task_id"],
@@ -279,7 +291,7 @@ def save_data(data: AppData) -> None:
         with conn:
             conn.execute("DELETE FROM tasks")
             conn.executemany(
-                "INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 [_task_to_row(t) for t in data.tasks],
             )
             conn.execute("DELETE FROM checklists")

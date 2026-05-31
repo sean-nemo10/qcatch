@@ -5,17 +5,32 @@ import { esc, fmtDate, fmtDatetime, calcScore, scoreBadge, scoreLabel, isDue } f
 // ── Dashboard state ───────────────────────────────────────────────────
 let _dashAllTasks = [];
 
+// ── カレンダー予定の時刻表示 ────────────────────────────────────────────
+function fmtEventTime(start) {
+  if (!start) return '';
+  // 終日イベントは "YYYY-MM-DD"、時刻ありは "...T..." 形式
+  if (!start.includes('T')) {
+    const d = new Date(start + 'T00:00:00');
+    return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAY_NAMES[(d.getDay() + 6) % 7]}） 終日`;
+  }
+  const d = new Date(start);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAY_NAMES[(d.getDay() + 6) % 7]}） ${hh}:${mm}`;
+}
+
 // ── Dashboard load ────────────────────────────────────────────────────
 export async function loadDashboard() {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="empty">読み込み中...</div>';
   try {
-    const [tasksData, clData, recData, inboxData, orderData] = await Promise.all([
+    const [tasksData, clData, recData, inboxData, orderData, calData] = await Promise.all([
       api('GET', '/api/tasks?status=todo'),
       api('GET', '/api/checklists'),
       api('GET', '/api/recurring'),
       api('GET', '/api/tasks?status=inbox'),
       api('GET', '/api/dashboard-order'),
+      api('GET', '/api/calendar/events?days=7').catch(() => ({events: []})),
     ]);
     container.innerHTML = '';
 
@@ -29,6 +44,24 @@ export async function loadDashboard() {
           <button class="btn btn-warning btn-sm" style="margin-left:auto" onclick="switchTabByName('inbox')">整理する</button>
         </div>
       </div>`;
+    }
+
+    // ── Google カレンダーの予定 ──
+    const _calEvents = (calData && calData.events) || [];
+    if (_calEvents.length) {
+      let html = `<div class="dash-section">
+        <div class="dash-section-title"><h2>📆 予定</h2><span class="count">${_calEvents.length}</span></div>`;
+      _calEvents.forEach(ev => {
+        html += `<div class="dash-item type-calendar">
+          <div class="dash-item-icon">📆</div>
+          <div class="dash-item-body">
+            <div class="dash-item-text">${esc(ev.title)}</div>
+            <div class="dash-item-meta">${esc(fmtEventTime(ev.start))}</div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      container.innerHTML += html;
     }
 
     // ── 固定チェックリスト（フル表示） ──

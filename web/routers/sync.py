@@ -163,6 +163,20 @@ def sync_all():
         raise HTTPException(500, str(e))
 
 
+@router.get("/api/calendar/events")
+def list_calendar_events(days: int = 7):
+    from core import google_sync
+
+    if not google_sync.is_authenticated():
+        return {"authenticated": False, "events": []}
+    try:
+        events = google_sync.get_calendar_events(days)
+        return {"authenticated": True, "events": events}
+    except Exception as e:
+        deps.logger.error(f"カレンダー予定取得エラー: {e}", exc_info=True)
+        raise HTTPException(500, str(e))
+
+
 @router.post("/api/calendar/add_event")
 def add_calendar_event(body: CalendarEventIn):
     from core import google_sync

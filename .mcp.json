@@ -2,7 +2,10 @@
   "mcpServers": {
     "zzzmemo": {
       "command": "python",
-      "args": ["<path-to-repo>/mcp_server.py"]
+      "args": ["<path-to-repo>/mcp_server.py"],
+      "env": {
+        "ZZZMEMO_BASE_URL": "https://zzzmemo.fly.dev"
+      }
     }
   }
 }

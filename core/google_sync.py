@@ -305,13 +305,19 @@ def _sync_to_calendar(creds, task) -> str:
     dt = task.due_date
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    dt_str = dt.isoformat()
+    start_str = dt.isoformat()
+
+    # 終了時刻があればイベントに幅を持たせる（なければゼロ幅で start=end）
+    end_dt = task.due_end or task.due_date
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=timezone.utc)
+    end_str = end_dt.isoformat()
 
     body = {
         "summary": task.text,
         "description": f"qcatch_id:{task.id}\ncategory:{task.category or ''}",
-        "start": {"dateTime": dt_str, "timeZone": "Asia/Tokyo"},
-        "end": {"dateTime": dt_str, "timeZone": "Asia/Tokyo"},
+        "start": {"dateTime": start_str, "timeZone": "Asia/Tokyo"},
+        "end": {"dateTime": end_str, "timeZone": "Asia/Tokyo"},
     }
 
     if task.google_event_id:
