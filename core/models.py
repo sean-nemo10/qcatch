@@ -26,6 +26,7 @@ class Task(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
+    due_end: Optional[datetime] = None  # 終了時刻（Calendar イベントの幅。None=ゼロ幅）
     importance: Importance = "medium"
     google_event_id: Optional[str] = None  # Calendar イベント ID
     google_task_id: Optional[str] = None  # Google Tasks タスク ID

@@ -2,7 +2,10 @@
   "mcpServers": {
     "zzzmemo": {
       "command": "C:/Users/seann/AppData/Local/Programs/Python/Python313/python.exe",
-      "args": ["C:/dev/ZzzMemo/mcp_server.py"]
+      "args": ["C:/dev/ZzzMemo/mcp_server.py"],
+      "env": {
+        "ZZZMEMO_BASE_URL": "https://zzzmemo.fly.dev"
+      }
     }
   }
 }

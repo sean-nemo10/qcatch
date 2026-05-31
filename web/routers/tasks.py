@@ -26,6 +26,7 @@ class TaskIn(BaseModel):
     text: str
     category: Optional[Category] = None
     due_date: Optional[datetime] = None
+    due_end: Optional[datetime] = None
     importance: Optional[Importance] = None
     status: Optional[str] = None  # longterm / inbox (default)
     auto_classify: bool = False
@@ -37,6 +38,7 @@ class TaskPatch(BaseModel):
     tags: Optional[list[str]] = None
     text: Optional[str] = None
     due_date: Optional[datetime] = None
+    due_end: Optional[datetime] = None
     importance: Optional[Importance] = None
 
 
@@ -72,6 +74,35 @@ class ApplySplitsIn(BaseModel):
     splits: list[SplitItem]
 
 
+# ── Google 即時同期（バックグラウンド・ベストエフォート） ──────────────────────
+
+
+def _sync_task_bg(task_id: str) -> None:
+    """due_date 付きタスクを Google へ push、期日なし/ゴミ箱なら削除。
+    Google 未認証（ローカル開発等）なら静かにスキップする。"""
+    from core import google_sync
+
+    task = next((t for t in deps.app_data.tasks if t.id == task_id), None)
+    if task is None:
+        return
+    try:
+        if task.status == "trashed" or not task.due_date:
+            if task.google_event_id or task.google_task_id:
+                google_sync.delete_from_google(task)
+                task.google_event_id = None
+                task.google_task_id = None
+                save_data_bg(deps.app_data)
+            return
+        updates = google_sync.push_task(task)
+        for k, v in updates.items():
+            setattr(task, k, v)
+        save_data_bg(deps.app_data)
+    except RuntimeError as e:
+        deps.logger.info(f"Google 即時同期スキップ（未認証）: {e}")
+    except Exception as e:
+        deps.logger.warning(f"Google 即時同期エラー: {e}")
+
+
 # ── /api/tasks ────────────────────────────────────────────────────────────────
 
 
@@ -90,12 +121,15 @@ def get_tasks(status: Optional[str] = None):
 @router.post("/api/tasks", status_code=201)
 def add_task(body: TaskIn, background_tasks: BackgroundTasks):
     status = (
-        body.status if body.status in ("inbox", "longterm", "wishlist") else "inbox"
+        body.status
+        if body.status in ("inbox", "todo", "longterm", "wishlist")
+        else "inbox"
     )
     task = Task(
         text=body.text,
         category=body.category,
         due_date=body.due_date,
+        due_end=body.due_end,
         importance=body.importance or "medium",
         status=status,
     )
@@ -103,11 +137,13 @@ def add_task(body: TaskIn, background_tasks: BackgroundTasks):
     save_data_bg(deps.app_data)
     if body.auto_classify and status == "inbox":
         background_tasks.add_task(_do_sort)
+    if task.due_date:
+        background_tasks.add_task(_sync_task_bg, task.id)
     return task.model_dump()
 
 
 @router.patch("/api/tasks/{task_id}")
-def update_task(task_id: str, body: TaskPatch):
+def update_task(task_id: str, body: TaskPatch, background_tasks: BackgroundTasks):
     task = deps.find_task(task_id)
     if body.status:
         if body.status not in (
@@ -132,9 +168,21 @@ def update_task(task_id: str, body: TaskPatch):
         task.text = body.text.strip()
     if "due_date" in body.model_fields_set:
         task.due_date = body.due_date
+    if "due_end" in body.model_fields_set:
+        task.due_end = body.due_end
     if body.importance is not None:
         task.importance = body.importance
     save_data_bg(deps.app_data)
+    # 期日・本文・カテゴリ・状態が変わったら Google へ即同期
+    _sync_fields = {
+        "due_date",
+        "due_end",
+        "text",
+        "category",
+        "status",
+    } & body.model_fields_set
+    if _sync_fields and (task.due_date or task.google_event_id or task.google_task_id):
+        background_tasks.add_task(_sync_task_bg, task.id)
     return task.model_dump()
 
 
