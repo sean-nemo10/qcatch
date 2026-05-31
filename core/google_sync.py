@@ -229,6 +229,22 @@ def pull_all(data) -> int:
 
 # ── Calendar ─────────────────────────────────────────────────────────────────
 
+_calendar_tz_cache: str | None = None
+
+
+def _get_calendar_timezone(service) -> str:
+    """primary カレンダーの設定タイムゾーンを取得（プロセス内キャッシュ）。
+    naive 日時はこの TZ のローカル時刻として書き込む。取得失敗時は Asia/Tokyo。"""
+    global _calendar_tz_cache
+    if _calendar_tz_cache:
+        return _calendar_tz_cache
+    try:
+        cal = service.calendars().get(calendarId="primary").execute()
+        _calendar_tz_cache = cal.get("timeZone") or "Asia/Tokyo"
+    except Exception:
+        _calendar_tz_cache = "Asia/Tokyo"
+    return _calendar_tz_cache
+
 
 def get_calendar_events(days: int = 1) -> list[dict]:
     """今日から days 日分の Google Calendar イベントを取得する。"""
@@ -281,17 +297,15 @@ def add_calendar_event(
         )
     from googleapiclient.discovery import build
 
-    if start_dt.tzinfo is None:
-        start_dt = start_dt.replace(tzinfo=timezone.utc)
-    if end_dt.tzinfo is None:
-        end_dt = end_dt.replace(tzinfo=timezone.utc)
-
+    # naive 日時はカレンダー設定 TZ のローカル時刻として扱う。timeZone フィールド
+    # に解釈を委ねるため dateTime にオフセットを付けない。
     service = build("calendar", "v3", credentials=creds)
+    tz = _get_calendar_timezone(service)
     body = {
         "summary": title,
         "description": description,
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": "Asia/Tokyo"},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Tokyo"},
+        "start": {"dateTime": start_dt.isoformat(), "timeZone": tz},
+        "end": {"dateTime": end_dt.isoformat(), "timeZone": tz},
     }
     ev = service.events().insert(calendarId="primary", body=body).execute()
     return ev["id"]
@@ -301,23 +315,21 @@ def _sync_to_calendar(creds, task) -> str:
     from googleapiclient.discovery import build
 
     service = build("calendar", "v3", credentials=creds)
+    tz = _get_calendar_timezone(service)
 
-    dt = task.due_date
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    start_str = dt.isoformat()
+    # naive 日時はカレンダー設定 TZ のローカル時刻として扱う。dateTime に
+    # オフセットを付けると timeZone と二重解釈になり時刻がずれるため、付けない。
+    start_str = task.due_date.isoformat()
 
     # 終了時刻があればイベントに幅を持たせる（なければゼロ幅で start=end）
     end_dt = task.due_end or task.due_date
-    if end_dt.tzinfo is None:
-        end_dt = end_dt.replace(tzinfo=timezone.utc)
     end_str = end_dt.isoformat()
 
     body = {
         "summary": task.text,
         "description": f"qcatch_id:{task.id}\ncategory:{task.category or ''}",
-        "start": {"dateTime": start_str, "timeZone": "Asia/Tokyo"},
-        "end": {"dateTime": end_str, "timeZone": "Asia/Tokyo"},
+        "start": {"dateTime": start_str, "timeZone": tz},
+        "end": {"dateTime": end_str, "timeZone": tz},
     }
 
     if task.google_event_id:
