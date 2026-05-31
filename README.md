@@ -145,8 +145,16 @@ ZzzMemo/
 ## Troubleshooting
 
 **Port 5000 already in use:**
+
+Set the `PORT` environment variable (default is 5000):
+
 ```bash
-python qcatch.py --port 5001
+# Mac/Linux
+PORT=5001 python qcatch.py
+```
+```powershell
+# Windows (PowerShell)
+$env:PORT=5001; python qcatch.py
 ```
 
 **Google auth error:**
