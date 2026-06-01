@@ -30,6 +30,7 @@ class Task(BaseModel):
     importance: Importance = "medium"
     google_event_id: Optional[str] = None  # Calendar イベント ID
     google_task_id: Optional[str] = None  # Google Tasks タスク ID
+    calendar_sync: bool = False  # True のときだけ Google Calendar / Tasks へ同期する
 
 
 class ChecklistItem(BaseModel):

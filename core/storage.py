@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     importance TEXT NOT NULL DEFAULT 'medium',
     google_event_id TEXT,
     google_task_id TEXT,
-    due_end TEXT
+    due_end TEXT,
+    calendar_sync INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS checklists (
@@ -152,6 +153,15 @@ def init_db() -> None:
         }
         if "due_end" not in task_cols:
             conn.execute("ALTER TABLE tasks ADD COLUMN due_end TEXT")
+        if "calendar_sync" not in task_cols:
+            conn.execute(
+                "ALTER TABLE tasks ADD COLUMN calendar_sync INTEGER NOT NULL DEFAULT 0"
+            )
+            # 既に Google へ同期済みのタスクは ON にして、誤って予定が消えないようにする
+            conn.execute(
+                "UPDATE tasks SET calendar_sync=1 "
+                "WHERE google_event_id IS NOT NULL OR google_task_id IS NOT NULL"
+            )
     conn.close()
 
 
@@ -172,6 +182,7 @@ def _task_to_row(t: Task) -> tuple:
         t.google_event_id,
         t.google_task_id,
         t.due_end.isoformat() if t.due_end else None,
+        1 if t.calendar_sync else 0,
     )
 
 
@@ -195,6 +206,9 @@ def _row_to_task(r: sqlite3.Row) -> Task:
         importance=r["importance"],
         google_event_id=r["google_event_id"],
         google_task_id=r["google_task_id"],
+        calendar_sync=(
+            bool(r["calendar_sync"]) if "calendar_sync" in r.keys() else False
+        ),
     )
 
 
@@ -291,7 +305,7 @@ def save_data(data: AppData) -> None:
         with conn:
             conn.execute("DELETE FROM tasks")
             conn.executemany(
-                "INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [_task_to_row(t) for t in data.tasks],
             )
             conn.execute("DELETE FROM checklists")
