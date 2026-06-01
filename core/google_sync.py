@@ -656,13 +656,15 @@ def _sync_to_tasks(creds, task) -> str:
     }
 
     # 1. 保存済み google_task_id で更新を試みる（高速パス）。
-    #    所属リストがズレていると update は失敗するが、その場合は 2 のスキャンが拾う。
+    #    所属リストがズレていると失敗するが、その場合は 2 のスキャンが拾う。
+    #    patch を使う点が重要: update(PUT) は body に id 必須で 400 になり、
+    #    全 update が失敗して毎回 insert → 重複していた。patch は id 不要。
     if task.google_task_id:
         list_id = _get_or_create_tasklist(service, task.category)
         try:
             t = (
                 service.tasks()
-                .update(tasklist=list_id, task=task.google_task_id, body=body)
+                .patch(tasklist=list_id, task=task.google_task_id, body=body)
                 .execute()
             )
             return t["id"]
@@ -676,7 +678,7 @@ def _sync_to_tasks(creds, task) -> str:
         try:
             t = (
                 service.tasks()
-                .update(tasklist=found_list_id, task=found_task_id, body=body)
+                .patch(tasklist=found_list_id, task=found_task_id, body=body)
                 .execute()
             )
             return t["id"]
