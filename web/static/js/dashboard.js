@@ -266,6 +266,7 @@ export function renderTaskDashItem(t, checklists) {
       <div class="dash-item-meta">${duePart}${duePart?' · ':''}${fmtDate(t.created_at)}</div>
     </div>
     <div class="dash-item-actions">
+      <button class="btn btn-ghost btn-sm" onclick="toggleCalendarSync('${t.id}',${t.calendar_sync?'true':'false'})" title="${t.calendar_sync?'カレンダー同期中（クリックで解除）':'カレンダーに登録'}" style="${t.calendar_sync?'color:#69f0ae':'opacity:.45'}">📅</button>
       <button class="imp-btn imp-${t.importance||'medium'}" onclick="cycleImportance('${t.id}','${t.importance||'medium'}')" title="重要度">${IMP_LABEL[t.importance||'medium']}</button>
       <button class="btn btn-ghost btn-sm" onclick="openTaskEditModal('${t.id}')">編集</button>
       <button class="btn btn-success btn-sm" onclick="dashComplete('${t.id}')">完了</button>
@@ -303,6 +304,24 @@ export async function dashComplete(id) {
   } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
 }
 window.dashComplete = dashComplete;
+
+// ── カレンダー同期トグル ──────────────────────────────────────────────
+export async function toggleCalendarSync(id, current) {
+  const next = !current;
+  try {
+    await api('PATCH', `/api/tasks/${id}`, {calendar_sync: next});
+    if (next) {
+      const t = _dashAllTasks.find(t => t.id === id);
+      window.showStatus(
+        t && t.due_date ? 'カレンダーに同期しました' : '期日を設定すると同期されます',
+        next ? 'success' : 'info', 2500);
+    } else {
+      window.showStatus('カレンダー同期を解除しました', 'info', 2000);
+    }
+    loadDashboard();
+  } catch(e) { window.showStatus('エラー: ' + e.message, 'error'); }
+}
+window.toggleCalendarSync = toggleCalendarSync;
 
 export async function dashTrash(id) {
   try {
