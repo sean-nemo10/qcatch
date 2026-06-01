@@ -22,6 +22,28 @@ else:
 
 _HISTORY_FILE = _BASE_DIR / "data" / "chat_history.json"
 
+
+def _push_to_google(task: Task, data: AppData) -> None:
+    """calendar_sync かつ due_date 付きのタスクを Google へ即 push、
+    それ以外で既存イベントがあれば削除。未認証なら静かにスキップする。"""
+    from core import google_sync
+
+    try:
+        if not task.calendar_sync or not task.due_date:
+            if task.google_event_id or task.google_task_id:
+                google_sync.delete_from_google(task)
+                task.google_event_id = None
+                task.google_task_id = None
+                storage.save_data(data)
+            return
+        updates = google_sync.push_task(task)
+        for k, v in updates.items():
+            setattr(task, k, v)
+        storage.save_data(data)
+    except Exception:
+        pass
+
+
 # 会話履歴（起動時にファイルから復元）
 _history: list[dict] = []  # {"role": "user"|"model", "text": str}
 
@@ -371,9 +393,11 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             status="todo" if category else "inbox",
             category=category,
             due_date=due_date,
+            calendar_sync=bool(due_date),  # 期日付きはカレンダー登録意図とみなす
         )
         data.tasks.append(task)
         storage.save_data(data)
+        _push_to_google(task, data)
         actions.append({"type": "refresh"})
         due_str = f"（期日: {due_date.strftime('%Y/%m/%d')}）" if due_date else ""
         return f"「{text}」を追加しました{due_str}。", actions
@@ -597,10 +621,12 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
         if due_date_str is not None:
             if due_date_str.lower() == "clear":
                 target.due_date = None
+                target.calendar_sync = False
                 changes.append("期日を削除")
             else:
                 try:
                     target.due_date = datetime.fromisoformat(due_date_str)
+                    target.calendar_sync = True
                     changes.append(
                         f"期日を {target.due_date.strftime('%Y/%m/%d')} に変更"
                     )
@@ -640,6 +666,7 @@ def _execute_fn(name: str, args: dict, data: AppData) -> tuple[str, list[dict]]:
             )
 
         storage.save_data(data)
+        _push_to_google(target, data)
         actions.append({"type": "refresh"})
         return f"「{target.text}」を更新しました: {' / '.join(changes)}", actions
 
