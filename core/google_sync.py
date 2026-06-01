@@ -200,17 +200,9 @@ def pull_all(data) -> int:
     task_map = {t.id: t for t in data.tasks}
     count = 0
 
-    lists = service.tasklists().list(maxResults=30).execute().get("items", [])
+    lists = service.tasklists().list(maxResults=100).execute().get("items", [])
     for tl in lists:
-        items = (
-            service.tasks()
-            .list(
-                tasklist=tl["id"], showCompleted=True, showHidden=True, maxResults=100
-            )
-            .execute()
-            .get("items", [])
-        )
-        for gt in items:
+        for gt in _list_all_tasks(service, tl["id"]):
             notes = gt.get("notes", "")
             if not notes.startswith("qcatch_id:"):
                 continue
@@ -330,6 +322,10 @@ def _sync_to_calendar(creds, task) -> str:
         "description": f"qcatch_id:{task.id}\ncategory:{task.category or ''}",
         "start": {"dateTime": start_str, "timeZone": tz},
         "end": {"dateTime": end_str, "timeZone": tz},
+        # qcatch_id を private 拡張プロパティに持たせる。privateExtendedProperty
+        # 検索は完全一致かつ即時整合なので、フリーテキスト q 検索のような
+        # インデックス遅延による取りこぼし（→ 重複挿入）が起きない。
+        "extendedProperties": {"private": {"qcatch_id": task.id}},
     }
 
     if task.google_event_id:
@@ -343,33 +339,149 @@ def _sync_to_calendar(creds, task) -> str:
         except Exception:
             pass
 
-    # description の qcatch_id で既存イベントを検索（重複防止）
-    results = (
-        service.events()
-        .list(
-            calendarId="primary",
-            privateExtendedProperty=None,
-            q=f"qcatch_id:{task.id}",
-            maxResults=5,
-            singleEvents=True,
-        )
-        .execute()
-        .get("items", [])
-    )
-    for ev in results:
-        if f"qcatch_id:{task.id}" in ev.get("description", ""):
-            try:
-                updated = (
-                    service.events()
-                    .update(calendarId="primary", eventId=ev["id"], body=body)
-                    .execute()
-                )
-                return updated["id"]
-            except Exception:
-                pass
+    # qcatch_id で既存イベントを検索（重複防止）。古いイベントは拡張プロパティを
+    # 持たないため、見つからなければ description 内の qcatch_id でも突合する。
+    existing_id = _find_calendar_event(service, task.id)
+    if existing_id:
+        try:
+            updated = (
+                service.events()
+                .update(calendarId="primary", eventId=existing_id, body=body)
+                .execute()
+            )
+            return updated["id"]
+        except Exception:
+            pass
 
     ev = service.events().insert(calendarId="primary", body=body).execute()
     return ev["id"]
+
+
+def _find_calendar_event(service, qcatch_id: str) -> str | None:
+    """qcatch_id が一致する既存 Calendar イベントの id を返す。なければ None。
+    新方式（extendedProperties.private）→ 旧方式（description 内）の順で探す。"""
+    try:
+        results = (
+            service.events()
+            .list(
+                calendarId="primary",
+                privateExtendedProperty=f"qcatch_id={qcatch_id}",
+                maxResults=5,
+                singleEvents=True,
+                showDeleted=False,
+            )
+            .execute()
+            .get("items", [])
+        )
+        if results:
+            return results[0]["id"]
+    except Exception:
+        pass
+
+    # 旧イベント（拡張プロパティ未設定）向けフォールバック
+    try:
+        results = (
+            service.events()
+            .list(
+                calendarId="primary",
+                q=f"qcatch_id:{qcatch_id}",
+                maxResults=5,
+                singleEvents=True,
+                showDeleted=False,
+            )
+            .execute()
+            .get("items", [])
+        )
+        for ev in results:
+            if f"qcatch_id:{qcatch_id}" in ev.get("description", ""):
+                return ev["id"]
+    except Exception:
+        pass
+    return None
+
+
+def _event_qcatch_id(ev: dict) -> str | None:
+    """イベントから qcatch_id を取り出す。拡張プロパティ→description の順。"""
+    qid = ev.get("extendedProperties", {}).get("private", {}).get("qcatch_id")
+    if qid:
+        return qid
+    desc = ev.get("description", "")
+    for line in desc.splitlines():
+        if line.startswith("qcatch_id:"):
+            return line[len("qcatch_id:") :].strip()
+    return None
+
+
+def dedupe_calendar_events(dry_run: bool = True) -> dict:
+    """同じ qcatch_id を持つ重複イベントを 1 件残して削除する。
+    戻り値: {"groups": 重複グループ数, "deleted": 削除件数, "kept": [...], "deleted_ids": [...]}。
+    dry_run=True なら削除せず対象だけ集計して返す。"""
+    creds = get_credentials()
+    if not creds:
+        raise RuntimeError("Google 認証が必要です。")
+    from googleapiclient.discovery import build
+
+    service = build("calendar", "v3", credentials=creds)
+
+    # 全イベントをページングで収集（時間範囲を絞らない）
+    by_qid: dict[str, list[dict]] = {}
+    page_token = None
+    while True:
+        resp = (
+            service.events()
+            .list(
+                calendarId="primary",
+                singleEvents=True,
+                showDeleted=False,
+                maxResults=250,
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        for ev in resp.get("items", []):
+            qid = _event_qcatch_id(ev)
+            if qid:
+                by_qid.setdefault(qid, []).append(ev)
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+
+    groups = 0
+    deleted = 0
+    kept: list[str] = []
+    deleted_ids: list[str] = []
+    for qid, evs in by_qid.items():
+        if len(evs) < 2:
+            continue
+        groups += 1
+        # 拡張プロパティ付きを優先して残す（新方式で突合できるため）。なければ先頭。
+        evs.sort(
+            key=lambda e: (
+                0
+                if e.get("extendedProperties", {}).get("private", {}).get("qcatch_id")
+                else 1
+            )
+        )
+        keep = evs[0]
+        kept.append(keep["id"])
+        for ev in evs[1:]:
+            deleted_ids.append(ev["id"])
+            if not dry_run:
+                try:
+                    service.events().delete(
+                        calendarId="primary", eventId=ev["id"]
+                    ).execute()
+                    deleted += 1
+                except Exception:
+                    pass
+    if dry_run:
+        deleted = len(deleted_ids)
+    return {
+        "groups": groups,
+        "deleted": deleted,
+        "kept": kept,
+        "deleted_ids": deleted_ids,
+    }
 
 
 def _delete_calendar_event(creds, event_id: str) -> None:
@@ -496,20 +608,35 @@ def _get_or_create_tasklist(service, category: str | None) -> str:
     return new_list["id"]
 
 
-def _find_existing_google_task(service, qcatch_id: str) -> tuple[str, str] | None:
-    """全リストから qcatch_id が一致するタスクを探す。戻り値: (list_id, task_id) or None。"""
-    lists = service.tasklists().list(maxResults=30).execute().get("items", [])
-    marker = f"qcatch_id:{qcatch_id}"
-    for tl in lists:
-        items = (
+def _list_all_tasks(service, tasklist_id: str) -> list[dict]:
+    """1 リストの全タスクをページングで取得する（100件超のリストにも対応）。"""
+    items: list[dict] = []
+    page_token = None
+    while True:
+        resp = (
             service.tasks()
             .list(
-                tasklist=tl["id"], showCompleted=True, showHidden=True, maxResults=100
+                tasklist=tasklist_id,
+                showCompleted=True,
+                showHidden=True,
+                maxResults=100,
+                pageToken=page_token,
             )
             .execute()
-            .get("items", [])
         )
-        for t in items:
+        items.extend(resp.get("items", []))
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+    return items
+
+
+def _find_existing_google_task(service, qcatch_id: str) -> tuple[str, str] | None:
+    """全リストから qcatch_id が一致するタスクを探す。戻り値: (list_id, task_id) or None。"""
+    lists = service.tasklists().list(maxResults=100).execute().get("items", [])
+    marker = f"qcatch_id:{qcatch_id}"
+    for tl in lists:
+        for t in _list_all_tasks(service, tl["id"]):
             if t.get("notes", "").startswith(marker):
                 return tl["id"], t["id"]
     return None
@@ -528,7 +655,8 @@ def _sync_to_tasks(creds, task) -> str:
         "notes": f"qcatch_id:{task.id}",
     }
 
-    # 1. 保存済み google_task_id で更新を試みる
+    # 1. 保存済み google_task_id で更新を試みる（高速パス）。
+    #    所属リストがズレていると update は失敗するが、その場合は 2 のスキャンが拾う。
     if task.google_task_id:
         list_id = _get_or_create_tasklist(service, task.category)
         try:
@@ -541,7 +669,7 @@ def _sync_to_tasks(creds, task) -> str:
         except Exception:
             pass
 
-    # 2. notes の qcatch_id で既存タスクを検索（重複防止）
+    # 2. notes の qcatch_id で既存タスクを検索（重複防止の本命・全リストをページング）
     existing = _find_existing_google_task(service, task.id)
     if existing:
         found_list_id, found_task_id = existing
@@ -559,6 +687,50 @@ def _sync_to_tasks(creds, task) -> str:
     list_id = _get_or_create_tasklist(service, task.category)
     t = service.tasks().insert(tasklist=list_id, body=body).execute()
     return t["id"]
+
+
+def dedupe_google_tasks(dry_run: bool = True) -> dict:
+    """同じ qcatch_id を持つ重複 Google Tasks を 1 件残して削除する。
+    戻り値: {"groups": 重複グループ数, "deleted": 削除件数, "deleted_ids": [...]}。
+    残すのは active(needsAction) を優先し、なければ先頭。dry_run=True なら削除しない。"""
+    creds = get_credentials()
+    if not creds:
+        raise RuntimeError("Google 認証が必要です。")
+    from googleapiclient.discovery import build
+
+    service = build("tasks", "v1", credentials=creds)
+    lists = service.tasklists().list(maxResults=100).execute().get("items", [])
+
+    # qcatch_id -> [(list_id, task_dict), ...]
+    by_qid: dict[str, list[tuple[str, dict]]] = {}
+    for tl in lists:
+        for t in _list_all_tasks(service, tl["id"]):
+            notes = t.get("notes", "")
+            if not notes.startswith("qcatch_id:"):
+                continue
+            qid = notes.split("\n", 1)[0][len("qcatch_id:") :].strip()
+            by_qid.setdefault(qid, []).append((tl["id"], t))
+
+    groups = 0
+    deleted = 0
+    deleted_ids: list[str] = []
+    for qid, entries in by_qid.items():
+        if len(entries) < 2:
+            continue
+        groups += 1
+        # active(needsAction) を優先して残す
+        entries.sort(key=lambda e: 0 if e[1].get("status") != "completed" else 1)
+        for list_id, t in entries[1:]:
+            deleted_ids.append(t["id"])
+            if not dry_run:
+                try:
+                    service.tasks().delete(tasklist=list_id, task=t["id"]).execute()
+                    deleted += 1
+                except Exception:
+                    pass
+    if dry_run:
+        deleted = len(deleted_ids)
+    return {"groups": groups, "deleted": deleted, "deleted_ids": deleted_ids}
 
 
 def _delete_google_task(creds, task_id: str) -> None:
