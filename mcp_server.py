@@ -88,8 +88,9 @@ def add_task(
     importance: str = "medium",
     due_date: str = "",
     end_time: str = "",
+    calendar: bool = True,
 ) -> str:
-    """新しいタスクを追加する。due_date を付けると Google Calendar / Tasks へ自動同期される。
+    """新しいタスクを追加する。due_date 付きかつ calendar=True なら Google Calendar / Tasks へ自動同期される。
 
     category: 仕事 / プライベート / 買い物 / 学習 / その他（空ならAIが後で分類）
     importance: high / medium / low
@@ -99,6 +100,8 @@ def add_task(
     end_time: 終了時刻 "YYYY-MM-DDTHH:MM:SS"（任意）。指定すると
       「15:00〜16:00」のような幅を持つ Calendar 予定になる。
       時刻だけ "HH:MM:SS" でも可（due_date と同じ日付になる）。
+    calendar: Google への同期を行うか（デフォルト True）。Google に出したくない
+      単なるメモ・ToDo なら False を指定する。due_date がなければ無効。
     """
     body: dict = {"text": text, "importance": importance}
     if category:
@@ -111,9 +114,10 @@ def add_task(
         body["due_date"] = start
         if end_time:
             body["due_end"] = _resolve_end(start, end_time)
+        body["calendar_sync"] = calendar
     task = _req("POST", "/api/tasks", body)
     dest = ""
-    if due_date:
+    if due_date and calendar:
         if "T" in due_date or end_time:
             dest = " → Calendar"
         else:
@@ -128,10 +132,13 @@ def update_task(
     category: str = "",
     due_date: str = "",
     end_time: str = "",
+    calendar: str = "",
 ) -> str:
     """既存タスクを更新する。due_date / end_time を変更すると Google 側にも即反映される。
     due_date に "clear" を渡すと期日を外し、Google の予定/ToDo も削除する。
-    end_time に "clear" を渡すと終了時刻だけ外す（予定はゼロ幅に戻る）。"""
+    end_time に "clear" を渡すと終了時刻だけ外す（予定はゼロ幅に戻る）。
+    calendar に "on"/"off" を渡すと Google 同期の ON/OFF を切り替える
+    （"off" で予定/ToDo を削除）。due_date を新しく設定すると既定で同期 ON になる。"""
     body: dict = {}
     if text:
         body["text"] = text
@@ -141,6 +148,11 @@ def update_task(
         body["due_date"] = None
     elif due_date:
         body["due_date"] = due_date if "T" in due_date else due_date + "T00:00:00"
+        body["calendar_sync"] = True  # 新規スケジュール時は既定で同期 ON
+    if calendar == "on":
+        body["calendar_sync"] = True
+    elif calendar == "off":
+        body["calendar_sync"] = False
     if end_time == "clear":
         body["due_end"] = None
     elif end_time:

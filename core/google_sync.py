@@ -164,14 +164,14 @@ def delete_from_google(task) -> None:
 
 
 def push_all(data) -> int:
-    """due_date を持つ全タスクを Google に同期。戻り値: 同期したタスク数。"""
+    """calendar_sync=True かつ due_date を持つタスクを Google に同期。戻り値: 同期したタスク数。"""
     creds = get_credentials()
     if not creds:
         raise RuntimeError("Google 認証が必要です。")
 
     count = 0
     for task in data.tasks:
-        if task.status == "trashed" or not task.due_date:
+        if task.status == "trashed" or not task.due_date or not task.calendar_sync:
             continue
         try:
             updates = push_task(task)

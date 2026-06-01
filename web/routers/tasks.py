@@ -30,6 +30,7 @@ class TaskIn(BaseModel):
     importance: Optional[Importance] = None
     status: Optional[str] = None  # longterm / inbox (default)
     auto_classify: bool = False
+    calendar_sync: bool = False
 
 
 class TaskPatch(BaseModel):
@@ -40,6 +41,7 @@ class TaskPatch(BaseModel):
     due_date: Optional[datetime] = None
     due_end: Optional[datetime] = None
     importance: Optional[Importance] = None
+    calendar_sync: Optional[bool] = None
 
 
 class BulkTaskItem(BaseModel):
@@ -78,7 +80,8 @@ class ApplySplitsIn(BaseModel):
 
 
 def _sync_task_bg(task_id: str) -> None:
-    """due_date 付きタスクを Google へ push、期日なし/ゴミ箱なら削除。
+    """calendar_sync かつ due_date 付きのタスクを Google へ push、
+    それ以外（期日なし/ゴミ箱/同期OFF）で既存イベントがあれば削除。
     Google 未認証（ローカル開発等）なら静かにスキップする。"""
     from core import google_sync
 
@@ -86,7 +89,7 @@ def _sync_task_bg(task_id: str) -> None:
     if task is None:
         return
     try:
-        if task.status == "trashed" or not task.due_date:
+        if task.status == "trashed" or not task.due_date or not task.calendar_sync:
             if task.google_event_id or task.google_task_id:
                 google_sync.delete_from_google(task)
                 task.google_event_id = None
@@ -132,12 +135,13 @@ def add_task(body: TaskIn, background_tasks: BackgroundTasks):
         due_end=body.due_end,
         importance=body.importance or "medium",
         status=status,
+        calendar_sync=body.calendar_sync,
     )
     deps.app_data.tasks.append(task)
     save_data_bg(deps.app_data)
     if body.auto_classify and status == "inbox":
         background_tasks.add_task(_do_sort)
-    if task.due_date:
+    if task.due_date and task.calendar_sync:
         background_tasks.add_task(_sync_task_bg, task.id)
     return task.model_dump()
 
@@ -172,14 +176,17 @@ def update_task(task_id: str, body: TaskPatch, background_tasks: BackgroundTasks
         task.due_end = body.due_end
     if body.importance is not None:
         task.importance = body.importance
+    if body.calendar_sync is not None:
+        task.calendar_sync = body.calendar_sync
     save_data_bg(deps.app_data)
-    # 期日・本文・カテゴリ・状態が変わったら Google へ即同期
+    # 期日・本文・カテゴリ・状態・同期フラグが変わったら Google へ即同期
     _sync_fields = {
         "due_date",
         "due_end",
         "text",
         "category",
         "status",
+        "calendar_sync",
     } & body.model_fields_set
     if _sync_fields and (task.due_date or task.google_event_id or task.google_task_id):
         background_tasks.add_task(_sync_task_bg, task.id)
@@ -319,6 +326,7 @@ def _do_sort() -> int:
         return 0
 
     id_to_sorted = {t.id: t for t in sorted_tasks}
+    to_sync: list[str] = []
     for task in deps.app_data.tasks:
         if task.id in id_to_sorted:
             s = id_to_sorted[task.id]
@@ -326,9 +334,16 @@ def _do_sort() -> int:
             task.category = s.category
             if s.due_date and not task.due_date:
                 task.due_date = s.due_date
+            # AI がカレンダー向きと判断したタスクにフラグを立てる
+            if s.calendar_sync and not task.calendar_sync:
+                task.calendar_sync = True
+            if task.calendar_sync and task.due_date:
+                to_sync.append(task.id)
 
     ai.update_few_shot(deps.app_data)
     save_data_bg(deps.app_data)
+    for tid in to_sync:
+        _sync_task_bg(tid)
     return len(sorted_tasks)
 
 

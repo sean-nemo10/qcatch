@@ -70,10 +70,13 @@ def _build_sort_prompt(tasks_text: str) -> str:
         f"各タスクには id= が付いています。必ず id をそのまま返してください。\n"
         f"タスクのテキストに「明日」「来週月曜」「月末」「3月31日」など日時を表す表現が含まれる場合は、"
         f"今日の日付を基準に ISO 8601 形式（YYYY-MM-DD）の due_date を設定してください。\n"
-        f"日時の表現がない場合は due_date を null にしてください。\n\n"
+        f"日時の表現がない場合は due_date を null にしてください。\n"
+        f"そのタスクが具体的な締切・予定を伴い Google カレンダー / Tasks に登録すべきもの"
+        f"（締切のある作業・予約・アポイント・重要度の高い行動）なら calendar_sync を true、"
+        f"単なるメモや日時の絡まない ToDo なら false にしてください。\n\n"
         f"タスクリスト:\n{tasks_text}\n\n"
         f"以下の JSON 形式のみで返してください（説明文不要）:\n"
-        f'{{"tasks": [{{"id": "タスクID", "category": "カテゴリ", "due_date": "YYYY-MM-DD or null"}}]}}'
+        f'{{"tasks": [{{"id": "タスクID", "category": "カテゴリ", "due_date": "YYYY-MM-DD or null", "calendar_sync": true/false}}]}}'
     )
 
 
@@ -102,6 +105,7 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
             id: str
             category: Literal["仕事", "プライベート", "買い物", "学習", "その他"]
             due_date: Opt[str] = None  # YYYY-MM-DD or null
+            calendar_sync: bool = False  # Google Calendar / Tasks に登録すべきか
 
         class _Result(BaseModel):
             tasks: list[_Item]
@@ -112,7 +116,8 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
             + _get_few_shot_text()
             + f"以下のタスクを {CATEGORIES} のいずれかに分類してください。"
             f"各行の id= をそのまま返すこと。\n"
-            f"テキスト中の日時表現（「明日」「来週」「月末」等）は今日の日付を基準にISO 8601のdue_dateで返し、なければnull。\n\n"
+            f"テキスト中の日時表現（「明日」「来週」「月末」等）は今日の日付を基準にISO 8601のdue_dateで返し、なければnull。\n"
+            f"具体的な締切・予定を伴い Google カレンダー/Tasks に登録すべきタスク（締切作業・予約・重要度高）は calendar_sync を true、単なるメモや日時の絡まない ToDo は false。\n\n"
             + tasks_text
         )
         response = client.models.generate_content(
@@ -127,7 +132,8 @@ def sort_with_gemini(tasks: list[Task], api_key: str) -> list[Task]:
         result = _Result.model_validate_json(response.text)
         id_cat_map = {item.id: item.category for item in result.tasks}
         id_due_map = {item.id: item.due_date for item in result.tasks if item.due_date}
-        return _apply_categories_by_id(tasks, id_cat_map, id_due_map)
+        id_cal_map = {item.id: item.calendar_sync for item in result.tasks}
+        return _apply_categories_by_id(tasks, id_cat_map, id_due_map, id_cal_map)
     except Exception:
         pass
 
@@ -364,7 +370,12 @@ def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
                 for item in items
                 if "id" in item and item.get("due_date")
             }
-            return _apply_categories_by_id(tasks, id_cat_map, id_due_map)
+            id_cal_map = {
+                item["id"]: bool(item["calendar_sync"])
+                for item in items
+                if "id" in item and "calendar_sync" in item
+            }
+            return _apply_categories_by_id(tasks, id_cat_map, id_due_map, id_cal_map)
 
         # テキストベースマッチング（フォールバック）
         cat_map = {
@@ -377,7 +388,12 @@ def _parse_json_response(tasks: list[Task], text: str) -> list[Task]:
             for item in items
             if "text" in item and item.get("due_date")
         }
-        return _apply_categories(tasks, cat_map, due_map)
+        cal_map = {
+            item["text"]: bool(item["calendar_sync"])
+            for item in items
+            if "text" in item and "calendar_sync" in item
+        }
+        return _apply_categories(tasks, cat_map, due_map, cal_map)
     except Exception:
         return tasks
 
@@ -386,9 +402,11 @@ def _apply_categories_by_id(
     tasks: list[Task],
     id_cat_map: dict[str, str],
     id_due_map: dict[str, str] | None = None,
+    id_cal_map: dict[str, bool] | None = None,
 ) -> list[Task]:
-    """IDをキーにカテゴリ・due_date を適用する。"""
+    """IDをキーにカテゴリ・due_date・calendar_sync を適用する。"""
     id_due_map = id_due_map or {}
+    id_cal_map = id_cal_map or {}
     for task in tasks:
         cat = id_cat_map.get(task.id)
         if cat and cat in CATEGORIES:
@@ -402,6 +420,8 @@ def _apply_categories_by_id(
                 task.due_date = datetime.strptime(due_str, "%Y-%m-%d")
             except ValueError:
                 pass
+        if id_cal_map.get(task.id):
+            task.calendar_sync = True
     return tasks
 
 
@@ -409,9 +429,11 @@ def _apply_categories(
     tasks: list[Task],
     cat_map: dict[str, str],
     due_map: dict[str, str] | None = None,
+    cal_map: dict[str, bool] | None = None,
 ) -> list[Task]:
-    """テキストをキーにカテゴリ・due_date を適用する（部分一致フォールバックあり）。"""
+    """テキストをキーにカテゴリ・due_date・calendar_sync を適用する（部分一致フォールバックあり）。"""
     due_map = due_map or {}
+    cal_map = cal_map or {}
 
     def _set_due(task: Task, key: str) -> None:
         due_str = due_map.get(key)
@@ -420,6 +442,8 @@ def _apply_categories(
                 task.due_date = datetime.strptime(due_str, "%Y-%m-%d")
             except ValueError:
                 pass
+        if cal_map.get(key):
+            task.calendar_sync = True
 
     for task in tasks:
         # 完全一致
