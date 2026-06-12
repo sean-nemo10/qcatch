@@ -51,47 +51,21 @@ class C:
 
 # ── add（即追記・重いimport一切なし） ────────────────────────────────────────
 def cmd_add(text: str) -> None:
-    """タスクを inbox.txt に追記。@カテゴリ タグがあれば sorted_tasks.md に直接追加。"""
+    """タスクを inbox.txt に追記。@カテゴリ タグは siphon 時に解釈され todo になる。"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     tag_match = re.search(r"@(" + "|".join(CATEGORIES) + r")\s*$", text)
 
+    entry = f"[{timestamp}] {text.strip()}\n"
+    with open(INBOX_FILE, "a", encoding="utf-8") as f:
+        f.write(entry)
+
     if tag_match:
-        # @タグ付き → sorted_tasks.md に直接追記
-        category = tag_match.group(1)
         clean = text[: tag_match.start()].strip()
-        _add_to_sorted(clean, category, timestamp)
         print(
-            f"{C.GRN}{C.BOLD}✓{C.RST} [{timestamp}] {clean}  {C.CYN}→ {category}{C.RST}"
+            f"{C.GRN}{C.BOLD}✓{C.RST} [{timestamp}] {clean}  {C.CYN}→ {tag_match.group(1)}{C.RST}"
         )
     else:
-        entry = f"[{timestamp}] {text}\n"
-        with open(INBOX_FILE, "a", encoding="utf-8") as f:
-            f.write(entry)
         print(f"{C.GRN}{C.BOLD}✓{C.RST} {entry.strip()}")
-
-
-def _add_to_sorted(text: str, category: str, timestamp: str) -> None:
-    """sorted_tasks.md の該当セクションに追記。"""
-    sorted_file = BASE_DIR / "data" / "sorted_tasks.md"
-    entry = f"- [{timestamp}] {text}"
-    section = f"## {category}"
-    content = sorted_file.read_text(encoding="utf-8") if sorted_file.exists() else ""
-    if section in content:
-        lines = content.splitlines()
-        insert_idx = len(lines)
-        in_sec = False
-        for i, line in enumerate(lines):
-            if line.strip() == section:
-                in_sec = True
-            elif in_sec and line.startswith("## "):
-                insert_idx = i
-                break
-        lines.insert(insert_idx, entry)
-        sorted_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    else:
-        sorted_file.write_text(
-            content.rstrip() + f"\n\n{section}\n{entry}\n", encoding="utf-8"
-        )
 
 
 # ── prompt（ターミナル対話入力） ──────────────────────────────────────────────
