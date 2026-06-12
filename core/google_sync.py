@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger("ZzzMemo")
 
 # PyInstaller / 通常実行 両対応
 if getattr(sys, "frozen", False):
@@ -178,8 +181,8 @@ def push_all(data) -> int:
             for k, v in updates.items():
                 setattr(task, k, v)
             count += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"push_all: 「{task.text}」の同期に失敗: {e}")
     return count
 
 

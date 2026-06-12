@@ -40,8 +40,12 @@ def _push_to_google(task: Task, data: AppData) -> None:
         for k, v in updates.items():
             setattr(task, k, v)
         storage.save_data(data)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+
+        logging.getLogger("ZzzMemo").warning(
+            f"チャット経由の Google 同期に失敗: 「{task.text}」: {e}"
+        )
 
 
 # 会話履歴（起動時にファイルから復元）

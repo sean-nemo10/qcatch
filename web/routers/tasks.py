@@ -325,7 +325,8 @@ def _do_sort() -> int:
             )
         else:
             return 0
-    except Exception:
+    except Exception as e:
+        deps.logger.error(f"AI 分類エラー: {e}", exc_info=True)
         return 0
 
     id_to_sorted = {t.id: t for t in sorted_tasks}
