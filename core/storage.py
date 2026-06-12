@@ -527,6 +527,7 @@ def sm2_update(card, quality: int):
 # ── inbox.txt 吸い上げ ────────────────────────────────────────────────────────
 
 _TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\]\s*")
+_TAG_RE = re.compile(r"\s*@(" + "|".join(CATEGORIES) + r")\s*$")
 
 
 def _parse_inbox_line(line: str) -> Task | None:
@@ -549,6 +550,17 @@ def _parse_inbox_line(line: str) -> Task | None:
         created_at = datetime.now()
     if not text:
         return None
+    # 末尾の @カテゴリ タグ（qcatch add の分類済み追加）→ 分類済み todo として取り込む
+    tag_m = _TAG_RE.search(text)
+    if tag_m:
+        clean = text[: tag_m.start()].strip()
+        if clean:
+            return Task(
+                text=clean,
+                status="todo",
+                category=tag_m.group(1),
+                created_at=created_at,
+            )
     return Task(text=text, status="inbox", created_at=created_at)
 
 
