@@ -113,7 +113,10 @@ def _sync_task_bg(task_id: str) -> None:
 def get_tasks(status: Optional[str] = None):
     from core.storage import siphon_inbox
 
-    siphon_inbox(deps.app_data)
+    # siphon は inbox.txt をクリアするので、取り込んだ分は即 DB に永続化する
+    # （保存しないとサーバー停止時に吸い上げ済みタスクが消える）
+    if siphon_inbox(deps.app_data):
+        save_data_bg(deps.app_data)
     tasks = deps.app_data.tasks
     if status:
         statuses = status.split(",")
