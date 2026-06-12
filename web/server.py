@@ -173,9 +173,14 @@ deps.logger = _setup_logging(_BASE_DIR)
 def _recurring_check_job() -> None:
     try:
         added = check_recurring(deps.app_data)
-        if added:
+        # 起動時だけでなく常駐中も longterm → todo 昇格を評価する
+        promoted = promote_longterm_tasks(deps.app_data)
+        if added or promoted:
             save_data_bg(deps.app_data)
+        if added:
             deps.logger.info(f"定期タスク生成: {len(added)}件 — {added}")
+        if promoted:
+            deps.logger.info(f"長期タスク昇格: {promoted}件")
     except Exception as e:
         deps.logger.error(f"定期タスクチェックエラー: {e}", exc_info=True)
 
