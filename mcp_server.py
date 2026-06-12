@@ -156,9 +156,20 @@ def update_task(
     if end_time == "clear":
         body["due_end"] = None
     elif end_time:
-        # due_date が同時指定ならそれを基準、なければ end_time の日付をそのまま使う
-        base = body.get("due_date") or end_time
-        body["due_end"] = _resolve_end(base, end_time)
+        # due_date が同時指定ならそれを基準にする。時刻のみ指定で due_date 変更なしの
+        # 場合は既存タスクの期日から日付を補う（補わないと "HH:MM:SST HH:MM:SS" の
+        # 不正な日時文字列になり 422 で失敗していた）
+        base = body.get("due_date")
+        if not base and "T" not in end_time:
+            tasks = _req("GET", "/api/tasks").get("tasks", [])
+            cur = next((t for t in tasks if t["id"] == task_id), None)
+            if not cur or not cur.get("due_date"):
+                return (
+                    "end_time を時刻のみで指定するにはタスクに期日が必要です。"
+                    "due_date も併せて指定してください。"
+                )
+            base = cur["due_date"]
+        body["due_end"] = _resolve_end(base or end_time, end_time)
     if not body:
         return "変更内容がありません"
     _req("PATCH", f"/api/tasks/{task_id}", body)
