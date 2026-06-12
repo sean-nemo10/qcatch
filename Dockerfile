@@ -1,5 +1,12 @@
 FROM python:3.12-slim
 
+# naive datetime.now()/date.today() を JST 基準にする（「今日」「期日超過」の
+# 日付境界が UTC のままだと日本時間より9時間遅れる）
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+ENV TZ=Asia/Tokyo
+
 WORKDIR /app
 
 COPY requirements-prod.txt .
