@@ -53,8 +53,16 @@ from web.deps import (  # noqa: E402  (deps は下で import される前にこ�
     verify_session,
 )
 
-# 認証不要なパス
-_PUBLIC_PATHS = {"/login", "/favicon.ico", "/manifest.json", "/sw.js"}
+# 認証不要なパス（/api/auth/login・callback は Google ログインの入口なので公開。
+# callback 側で GOOGLE_EMAIL と突合してからセッションを発行する）
+_PUBLIC_PATHS = {
+    "/login",
+    "/favicon.ico",
+    "/manifest.json",
+    "/sw.js",
+    "/api/auth/login",
+    "/api/auth/callback",
+}
 
 
 def _render_login_page(error: str = "") -> str:
@@ -271,7 +279,9 @@ def login_submit(username: str = Form(...), password: str = Form(...)):
 
     user_ok = secrets.compare_digest(username.encode(), _AUTH_USER.encode())
     pass_ok = secrets.compare_digest(password.encode(), _AUTH_PASS.encode())
-    if _AUTH_ENABLED and not (user_ok and pass_ok):
+    # パスワード認証が無効な構成では POST /login でセッションを発行しない
+    # （Google ログインのみの構成で任意の POST が通る認証バイパスを防ぐ）
+    if not _AUTH_ENABLED or not (user_ok and pass_ok):
         return RedirectResponse(url="/login?error=1", status_code=303)
     resp = RedirectResponse(url="/", status_code=303)
     resp.set_cookie(
