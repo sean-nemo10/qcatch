@@ -205,6 +205,9 @@ def _auto_sync_job() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 認証の設定漏れは全データの無認証公開になるため、起動前に落とす
+    deps.assert_auth_configured()
+
     # Google client_secret.json を環境変数から復元（Fly.io 用）
     _secret_json = os.environ.get("GOOGLE_CLIENT_SECRET_JSON", "")
     if _secret_json:
