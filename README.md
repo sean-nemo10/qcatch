@@ -1,5 +1,7 @@
 # ZzzMemo
 
+**English** | [日本語概要](README.ja.md)
+
 **AI-powered personal task manager** — chat with your tasks, sync with Google Calendar, and study English from your daily life.
 
 > 🌐 **Live demo**: [zzzmemo.fly.dev](https://zzzmemo.fly.dev)
